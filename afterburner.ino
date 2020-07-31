@@ -21,7 +21,7 @@
    * National GAL16V8
    * Lattice GAL16V8A, GAL16V8B, GAL16V8D
    * Lattice GAL22V10B
-   * Atmel ATF16V8B, ATF22V10B, ATF22V10CQZ 
+   * Atmel ATF16V8B, ATF22V10B, ATF22V10CQZ, ATF750C
 
    Requires:
    * afterburner PC program to upload JED fuse map, erase, read etc.
@@ -32,11 +32,13 @@
    * 2019.04.09 - v. 0.3, 
                 - added set & check of gal type,
                 - fixed ATF22V10 and GAL22V10 CFG reading bug (porting bug)
+   * 2020-07-31 - v. 0.4
+                - added support for ATF750C
 
                                                                        */
 
 
-#define VERSION "0.3"
+#define VERSION "0.4"
 
 //#define DEBUG_PES
 //#define DEBUG_VERIFY
@@ -111,6 +113,7 @@ typedef enum {
   ATF16V8B,
   ATF22V10B,
   ATF22V10C,
+  ATF750C,
   LAST_GAL_TYPE //dummy
 } GALTYPE;
 
@@ -120,6 +123,8 @@ typedef enum {
 #define CFG_BASE_16 2048
 #define CFG_BASE_20 2560
 #define CFG_BASE_22 5808
+#define CFG_BASE_750 14364
+//#define CFG_BASE_750EXT 14395
 
 #define CFG_STROBE_ROW 0
 #define CFG_SET_ROW 1
@@ -157,6 +162,20 @@ static const unsigned char cfgV8AB[]=
 static const unsigned char cfgV10[]=
 {
       1,0,3,2,5,4,7,6,9,8,11,10,13,12,15,14,17,16,19,18,
+};
+
+static const unsigned char cfgV750[]=
+{
+      2,  1,  0,   34, 33, 32, 31, 
+      5,  4,  3,   38, 37, 36, 35, 
+      8,  7,  6,   42, 41, 40, 39, 
+     11, 10,  9,   46, 45, 44, 43,
+     14, 13, 12,   50, 49, 48, 47,
+     17, 16, 15,   54, 53, 52, 51,
+     20, 19, 18,   58, 57, 56, 55,
+     23, 22, 21,   62, 61, 60, 59,
+     26, 25, 24,   66, 65, 64, 63,
+     29, 28, 27,   70, 69, 68, 67,
 };
 
 
@@ -200,12 +219,19 @@ galinfo[]=
     {ATF16V8B,  0x00, 0x00, "ATF16V8B", 2194, 20, 32,  64, 32, 2056, 8, 63, 54, 58,  8, 60, CFG_BASE_16, cfgV8AB, sizeof(cfgV8AB), CFG_STROBE_ROW},
     {ATF22V10B, 0x00, 0x00, "ATF22V10B",5892, 24, 44, 132, 44, 5828, 8, 61, 60, 58, 10, 16, CFG_BASE_22, cfgV10,  sizeof(cfgV10) , CFG_SET_ROW   },
     {ATF22V10C, 0x00, 0x00, "ATF22V10C",5892, 24, 44, 132, 44, 5828, 8, 61, 60, 58, 10, 16, CFG_BASE_22, cfgV10,  sizeof(cfgV10) , CFG_SET_ROW   },
+    {ATF750C,   0x00, 0x00, "ATF750C", 14499, 24, 84, 171, 84,14435, 8, 61, 60,127, 10, 16, CFG_BASE_750,cfgV750, sizeof(cfgV750), CFG_SET_ROW   },
 };
 
 // MAXFUSES calculated as the biggest required space to hold the fuse bitmap + UES bitmap + CFG bitmap
 // MAXFUSES = ((132 * 44 bits) / 8)  + uesbytes + (20 / 8)
 //               726 + 8 + 3
 #define MAXFUSES 737
+
+// for ATF750C
+// MAXFUSES = (((171 * 84 bits)  + uesbits + (10*3 + 1 + 10*4 + 5)) + 7) / 8
+//               (14504 + 7) / 8 = 1813
+//#define MAXFUSES 1813
+// TODO: this size will not fit in the memory of the Arduino RAM (variable fusemap would get too large)
 
 
 GALTYPE gal; //the gal device index pointing to galinfo
@@ -609,7 +635,7 @@ static void sendBits(short n, char bitValue)
 }
 
 // send row address bits to SDIN 
-// ATF22V10C MSb first, other 22V10 LSb first
+// ATF22V10C/ATF750C MSb first, other 22V10 LSb first
 static void sendAddress(unsigned char n, unsigned char row)
 {
   switch (gal) {
@@ -619,6 +645,13 @@ static void sendAddress(unsigned char n, unsigned char row)
           row <<= 1;
       }
       setSDIN(row & 32);       // SDIN = row number bit 0
+      break;
+  case ATF750C:
+      while (n-- > 1) {
+          sendBit(row & 64);   // clock in row number bits 6-1
+          row <<= 1;
+      }
+      setSDIN(row & 64);       // SDIN = row number bit 0
       break;
   default:
       while (n-- > 0) {
@@ -657,6 +690,16 @@ static void strobeRow(char row)
       setSTB(0);
       setSTB(1);           // pulse /STB
       setSDIN(0);          // SDIN low
+      break;
+    case ATF750C:
+      setRow(0);           // set RA0-6 low
+      sendAddress(7,row);  // send row number (7 bits)
+      setSTB(0);
+      setSTB(1);           // pulse /STB
+      setSDIN(0);          // SDIN low
+      break;
+   }
+
    }
 }
 
@@ -722,6 +765,7 @@ void parsePes(char type) {
     case ATF16V8B:
     case ATF22V10B:
     case ATF22V10C:
+    case ATF750C:
         progtime = 10;
         erasetime = 100;
         vpp = 48;    /* 12.0V */
@@ -821,6 +865,7 @@ void printPes(char type) {
     case ATF16V8B: Serial.print(F("ATF16V8B ")); break;
     case ATF22V10B: Serial.print(F("ATF22V10B ")); break;
     case ATF22V10C: Serial.print(F("ATF22V10C ")); break;
+    case ATF750C: Serial.print(F("ATF750C ")); break;
   }
 
   //programming info
@@ -1030,6 +1075,14 @@ static void readOrVerifyGal(char verify)
         readGalFuseMap(cfgV10, 1, (gal == GAL22V10) ? 0 : 68);
       } 
       break;
+    case ATF750C:
+      //read with delay 1 ms, discard 68 cfg bits on ATF750C
+      if (verify) {
+        i = verifyGalFuseMap(cfgV750, 1, 68); // TODO: fix constant 68
+      } else {
+        readGalFuseMap(cfgV750, 1, 68);  // TODO: fix constant 68
+      } 
+      break;
   }
   turnOff();
 
@@ -1165,6 +1218,10 @@ static void writeGal()
     case ATF22V10C:
         writeGalFuseMapV10(cfgV10, (gal == GAL22V10) ? 0 : 1, (gal == ATF22V10C) ? 1 : 0);
         break; 
+    case ATF750C:
+        writeGalFuseMapV10(cfgV750, 1, 1); // TODO: fix 2xconstant 1
+        break; 
+
   }
   turnOff();
 }
@@ -1205,6 +1262,9 @@ static char checkGalTypeViaPes(void)
        } else {
            type = ATF22V10C;
        }
+    else if (pes[5] == 'F' && pes[4]== '7' && pes[3]== '5' && pes[2]== '0' && pes[1]=='C') {
+      type = ATF750C;
+    }
     }
     else if (pes[6] == 'F' && pes[5] == '1' && pes[4]== '6' && pes[3] == 'V' && pes[2]=='8') {
        type = ATF16V8B;
@@ -1380,7 +1440,7 @@ static void printJedec()
         n = 0;
         for (i = 0; i < 8; i++) {
             if (getFuseBit(k + 8 * j + i)) {
-                if (gal == ATF22V10C) {
+                if ((gal == ATF22V10C) || (gal == ATF750C)) {
                     n |= 1 << (7 - i);  // big-endian
                 }
                 else {
