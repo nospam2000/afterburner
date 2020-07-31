@@ -247,7 +247,8 @@ galinfo[]=
 
 
 GALTYPE gal; //the gal device index pointing to galinfo
-static short security = 0, erasetime = 100, progtime = 100, vpp = 0;
+//static short security = 0;
+static short erasetime = 100, progtime = 100, vpp = 0;
 
 char echoEnabled;
 unsigned char pes[12];
