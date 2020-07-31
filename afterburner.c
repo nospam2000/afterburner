@@ -22,7 +22,7 @@ Supports:
 * National GAL16V8
 * Lattice GAL16V8A, GAL16V8B, GAL16V8D
 * Lattice GAL22V10B
-* Atmel ATF16V8B, ATF22V10B, ATF22V10CQZ
+* Atmel ATF16V8B, ATF22V10B, ATF22V10CQZ, ATF750C
 
 Requires:
 * Arduino UNO with Afterburner sketch uploaded.
@@ -66,7 +66,8 @@ typedef enum {
     GAL22V10,
     ATF16V8B,
     ATF22V10B,
-    ATF22V10C
+    ATF22V10C,
+    ATF750C
 } Galtype;
 
 
@@ -97,6 +98,7 @@ galinfo[] = {
     {ATF16V8B,  0x00, 0x00, "ATF16V8B", 2194, 20, 32, 64, 32, 2056, 8, 63, 54, 58, 8, 60, 82},
     {ATF22V10B, 0x00, 0x00, "ATF22V10B", 5892, 24, 44, 132, 44, 5828, 8, 61, 60, 58, 10, 16, 20},
     {ATF22V10C, 0x00, 0x00, "ATF22V10C", 5892, 24, 44, 132, 44, 5828, 8, 61, 60, 58, 10, 16, 20},
+    {ATF750C,   0x00, 0x00, "ATF750C",  14499, 24, 84, 171, 84,14435, 8, 61, 60,127, 10, 16, 30+1+40},
 };
 
 char verbose = 0;
@@ -136,7 +138,7 @@ static void printHelp() {
     printf("   s : sets VPP ON to check the programming voltage. Ensure the GAL is NOT inserted.\n");
     printf("options:\n");
     printf("  -v : verbose mode\n");
-    printf("  -t <gal_type> : the GAL type. use GAL16V8 GAL20V8 GAL22V10 ATF16V8B ATF22V10B ATF22V10C\n");
+    printf("  -t <gal_type> : the GAL type. use GAL16V8 GAL20V8 GAL22V10 ATF16V8B ATF22V10B ATF22V10C ATF750C\n");
     printf("  -f <file> : JEDEC fuse map file\n");
     printf("  -d <serial_device> : name of the serial device. Default is: %s\n", DEFAULT_SERIAL_DEVICE_NAME);
     printf("                       serial params are: 38400, 8N1\n");
@@ -151,7 +153,7 @@ static void printHelp() {
     printf("         of the chip. If the programing voltage is unknown use 10V.\n");
     printf("  - known VPP voltages as tested on Afterburner with Arduino UNO: \n");
     printf("        Lattice GAL16V8D, GAL22V10D: 12V \n");
-    printf("        Atmel   ATF16V8D, ATF22V10C: 10V \n");
+    printf("        Atmel   ATF16V8D, ATF22V10C, ATF750C: 10V \n");
 }
 
 static char checkArgs(int argc, char** argv) {
@@ -241,9 +243,12 @@ static char checkArgs(int argc, char** argv) {
         if (strcmp("ATF22V10C", type) == 0) {
             gal = ATF22V10C;
         }
+        if (strcmp("ATF750C", type) == 0) {
+            gal = ATF750C;
+        }
 
         if (UNKNOWN == gal) {
-            printf("Error: unknow GAL type. Types: GAL16V8 GAL20V8 GAL22V10 ATF16V8B ATF22V10B ATF22V10C\n");
+            printf("Error: unknow GAL type. Types: GAL16V8 GAL20V8 GAL22V10 ATF16V8B ATF22V10B ATF22V10C ATF750C\n");
             return -1;
         }
     }
@@ -431,11 +436,11 @@ static int parseFuseMap(char *ptr) {
             if (
                 (lastfuse == 0 ||
                  galinfo[i].fuses == lastfuse ||
-                 galinfo[i].uesfuse == lastfuse && galinfo[i].uesfuse + 8 * galinfo[i].uesbytes == galinfo[i].fuses)
+                 (galinfo[i].uesfuse == lastfuse && galinfo[i].uesfuse + 8 * galinfo[i].uesbytes == galinfo[i].fuses))
                 &&
                 (pins == 0 ||
                  galinfo[i].pins == pins ||
-                 galinfo[i].pins == 24 && pins == 28)
+                 (galinfo[i].pins == 24 && pins == 28))
             ) {
                 if (gal == 0) {
                     type = i;

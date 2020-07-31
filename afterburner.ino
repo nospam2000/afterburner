@@ -162,20 +162,32 @@ static const unsigned char cfgV8AB[]=
 static const unsigned char cfgV10[]=
 {
       1,0,3,2,5,4,7,6,9,8,11,10,13,12,15,14,17,16,19,18,
+      // TODO: is the value 84 for Powerdown fuse missing here?
 };
 
 static const unsigned char cfgV750[]=
 {
-      2,  1,  0,   34, 33, 32, 31, 
-      5,  4,  3,   38, 37, 36, 35, 
-      8,  7,  6,   42, 41, 40, 39, 
-     11, 10,  9,   46, 45, 44, 43,
-     14, 13, 12,   50, 49, 48, 47,
-     17, 16, 15,   54, 53, 52, 51,
-     20, 19, 18,   58, 57, 56, 55,
-     23, 22, 21,   62, 61, 60, 59,
-     26, 25, 24,   66, 65, 64, 63,
-     29, 28, 27,   70, 69, 68, 67,
+    // TODO: order is not clear
+      2,  1,  0,   34, 33, 32, 31, // 0 offset
+      5,  4,  3,   38, 37, 36, 35, // 7
+      8,  7,  6,   42, 41, 40, 39, // 14
+     11, 10,  9,   46, 45, 44, 43, // 21
+     14, 13, 12,   50, 49, 48, 47, // 28
+     17, 16, 15,   54, 53, 52, 51, // 35
+     20, 19, 18,   58, 57, 56, 55, // 42
+     23, 22, 21,   62, 61, 60, 59, // 49
+     26, 25, 24,   66, 65, 64, 63, // 56
+     29, 28, 27,   70, 69, 68, 67, // 63
+
+     // TODO: unclear how to handle those:
+     135, // 70: Powerdown
+     /*
+     136, // 71: PinKeeper
+     137, // 72: unknown
+     138, // 73: unknown
+     139, // 74: unknown
+     30,  // 75: Security?
+     */
 };
 
 
@@ -219,7 +231,7 @@ galinfo[]=
     {ATF16V8B,  0x00, 0x00, "ATF16V8B", 2194, 20, 32,  64, 32, 2056, 8, 63, 54, 58,  8, 60, CFG_BASE_16, cfgV8AB, sizeof(cfgV8AB), CFG_STROBE_ROW},
     {ATF22V10B, 0x00, 0x00, "ATF22V10B",5892, 24, 44, 132, 44, 5828, 8, 61, 60, 58, 10, 16, CFG_BASE_22, cfgV10,  sizeof(cfgV10) , CFG_SET_ROW   },
     {ATF22V10C, 0x00, 0x00, "ATF22V10C",5892, 24, 44, 132, 44, 5828, 8, 61, 60, 58, 10, 16, CFG_BASE_22, cfgV10,  sizeof(cfgV10) , CFG_SET_ROW   },
-    {ATF750C,   0x00, 0x00, "ATF750C", 14499, 24, 84, 171, 84,14435, 8, 61, 60,127, 10, 16, CFG_BASE_750,cfgV750, sizeof(cfgV750), CFG_SET_ROW   },
+    {ATF750C,   0x00, 0x00, "ATF750C", 14499, 24, 84, 171, 84,14435, 8, 61, 60,127, 10, 16, CFG_BASE_750,cfgV750, sizeof(cfgV750), CFG_SET_ROW   }, // TODO: not all numbers are clear
 };
 
 // MAXFUSES calculated as the biggest required space to hold the fuse bitmap + UES bitmap + CFG bitmap
@@ -1068,19 +1080,14 @@ static void readOrVerifyGal(char verify)
     case GAL22V10:
     case ATF22V10B:
     case ATF22V10C:
-      //read with delay 1 ms, discard 68 cfg bits on ATFxx
-      if (verify) {
-        i = verifyGalFuseMap(cfgV10, 1, (gal == GAL22V10) ? 0 : 68);
-      } else {
-        readGalFuseMap(cfgV10, 1, (gal == GAL22V10) ? 0 : 68);
-      } 
-      break;
     case ATF750C:
-      //read with delay 1 ms, discard 68 cfg bits on ATF750C
+      //read with delay 1 ms, discard 68 cfg bits on ATF22V10B/C and 107 on ATF750C
       if (verify) {
-        i = verifyGalFuseMap(cfgV750, 1, 68); // TODO: fix constant 68
+        i = verifyGalFuseMap((gal == ATF750C) ? cfg750 : cfgV10, 1,
+           (gal == GAL22V10) ? 0 : galinfo[gal].bit - 8 * galinfo[gal].uesbytes);
       } else {
-        readGalFuseMap(cfgV750, 1, 68);  // TODO: fix constant 68
+        readGalFuseMap((gal == ATF750C) ? cfg750 : cfgV10, 1,
+          (gal == GAL22V10) ? 0 : galinfo[gal].bit - 8 * galinfo[gal].uesbytes);
       } 
       break;
   }
@@ -1152,7 +1159,7 @@ static void writeGalFuseMapV10(const unsigned char* cfgArray, char fillUesStart,
 
   // write UES
   if (fillUesStart) {
-    sendBits(68, 1);
+    sendBits(galinfo[gal].bit - 8 * galinfo[gal].uesbytes, 1);
   }
   for (bit = 0; bit < 64; bit++) {
     addr = galinfo[gal].uesfuse;
@@ -1160,7 +1167,7 @@ static void writeGalFuseMapV10(const unsigned char* cfgArray, char fillUesStart,
     sendBit(getFuseBit(addr));
   }
   if (!fillUesStart) {
-    sendBits(68, 1);
+    sendBits(galinfo[gal].bit - 8 * galinfo[gal].uesbytes, 1);
   }
   sendAddress(6, galinfo[gal].uesrow);
   setPV(1);
@@ -1173,7 +1180,9 @@ static void writeGalFuseMapV10(const unsigned char* cfgArray, char fillUesStart,
     sendBit(getFuseBit(cfgAddr + cfgArray[bit]));
   }
   if (useSdin) {
-    setSDIN(getFuseBit(cfgAddr + cfgArray[19]));
+    setSDIN(getFuseBit(cfgAddr + cfgArray[galinfo[gal].cfgbits - 1])); // last config bit is power down bit
+    // TODO: the logic is wrong, because that would need 20+1 bits for ATF22V10C, but the array only contains 20 values
+    // maybe:     setSDIN(getFuseBit(cfgAddr + cfgArray[20]));, but then array must be longer
   }
   setPV(1);
   strobe(progtime);
@@ -1189,6 +1198,70 @@ static void writeGalFuseMapV10(const unsigned char* cfgArray, char fillUesStart,
   }
   
 }
+
+// fuse-map writing function for ATF750C chips
+static void writeGalFuseMapV750C(const unsigned char* cfgArray, char fillUesStart, char useSdin) {
+  unsigned short cfgAddr = galinfo[gal].cfgbase;
+  unsigned char row, bit;
+  unsigned short addr;
+
+  setRow(0); //RA0-5 low
+  // write fuse rows
+  for (row = 0; row < galinfo[gal].rows; row++) {
+    for (bit = 0; bit < galinfo[gal].bits; bit++) {
+      addr = galinfo[gal].rows;
+      addr *= bit;
+      addr += row;
+      sendBit(getFuseBit(addr));
+    }
+    sendAddress(7, row);
+    setPV(1);
+    strobe(progtime);
+    setPV(0);
+  }
+
+  // write UES
+  if (fillUesStart) {
+    sendBits(galinfo[gal].bit - (8 * galinfo[gal].uesbytes), 1);
+  }
+  for (bit = 0; bit < (8 * galinfo[gal].uesbytes); bit++) {
+    addr = galinfo[gal].uesfuse;
+    addr += bit;
+    sendBit(getFuseBit(addr));
+  }
+  if (!fillUesStart) {
+    sendBits(galinfo[gal].bit - (8 * galinfo[gal].uesbytes), 1);
+  }
+  sendAddress(7, galinfo[gal].uesrow);
+  setPV(1);
+  strobe(progtime);
+  setPV(0);
+  
+  // write CFG
+  setRow(galinfo[gal].cfgrow);
+  for(bit = 0; bit < galinfo[gal].cfgbits - useSdin; bit++) {
+    sendBit(getFuseBit(cfgAddr + cfgArray[bit]));
+  }
+  if (useSdin) {
+    setSDIN(getFuseBit(cfgAddr + cfgArray[galinfo[gal].cfgbits - 1])); // last config bit is power down bit
+    // TODO: the logic is wrong, because that would need 20+1 bits for ATF22V10C, but the array only contains 20 values
+    // maybe:     setSDIN(getFuseBit(cfgAddr + cfgArray[20]));, but then array must be longer
+  }
+  setPV(1);
+  strobe(progtime);
+  setPV(0);
+
+  if (useSdin) {
+    // disable power-down feature (JEDEC bit #5892)
+    setRow(0);
+    sendAddress(7, 86); // TODO: check if constant 86 is correct
+    setPV(1);
+    strobe(progtime);
+    setPV(0);
+  }
+  
+}
+
 
 // main fuse-map writing function
 static void writeGal()
@@ -1219,7 +1292,7 @@ static void writeGal()
         writeGalFuseMapV10(cfgV10, (gal == GAL22V10) ? 0 : 1, (gal == ATF22V10C) ? 1 : 0);
         break; 
     case ATF750C:
-        writeGalFuseMapV10(cfgV750, 1, 1); // TODO: fix 2xconstant 1
+        writeGalFuseMapV750C(cfgV750, 1, 1); // TODO: fix 2xconstant 1
         break; 
 
   }
