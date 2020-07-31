@@ -711,8 +711,6 @@ static void strobeRow(char row)
       setSDIN(0);          // SDIN low
       break;
    }
-
-   }
 }
 
 
@@ -1083,11 +1081,11 @@ static void readOrVerifyGal(char verify)
     case ATF750C:
       //read with delay 1 ms, discard 68 cfg bits on ATF22V10B/C and 107 on ATF750C
       if (verify) {
-        i = verifyGalFuseMap((gal == ATF750C) ? cfg750 : cfgV10, 1,
-           (gal == GAL22V10) ? 0 : galinfo[gal].bit - 8 * galinfo[gal].uesbytes);
+        i = verifyGalFuseMap((gal == ATF750C) ? cfgV750 : cfgV10, 1,
+           (gal == GAL22V10) ? 0 : galinfo[gal].bits - 8 * galinfo[gal].uesbytes);
       } else {
-        readGalFuseMap((gal == ATF750C) ? cfg750 : cfgV10, 1,
-          (gal == GAL22V10) ? 0 : galinfo[gal].bit - 8 * galinfo[gal].uesbytes);
+        readGalFuseMap((gal == ATF750C) ? cfgV750 : cfgV10, 1,
+          (gal == GAL22V10) ? 0 : galinfo[gal].bits - 8 * galinfo[gal].uesbytes);
       } 
       break;
   }
@@ -1159,7 +1157,7 @@ static void writeGalFuseMapV10(const unsigned char* cfgArray, char fillUesStart,
 
   // write UES
   if (fillUesStart) {
-    sendBits(galinfo[gal].bit - 8 * galinfo[gal].uesbytes, 1);
+    sendBits(galinfo[gal].bits - 8 * galinfo[gal].uesbytes, 1);
   }
   for (bit = 0; bit < 64; bit++) {
     addr = galinfo[gal].uesfuse;
@@ -1167,7 +1165,7 @@ static void writeGalFuseMapV10(const unsigned char* cfgArray, char fillUesStart,
     sendBit(getFuseBit(addr));
   }
   if (!fillUesStart) {
-    sendBits(galinfo[gal].bit - 8 * galinfo[gal].uesbytes, 1);
+    sendBits(galinfo[gal].bits - 8 * galinfo[gal].uesbytes, 1);
   }
   sendAddress(6, galinfo[gal].uesrow);
   setPV(1);
@@ -1222,7 +1220,7 @@ static void writeGalFuseMapV750C(const unsigned char* cfgArray, char fillUesStar
 
   // write UES
   if (fillUesStart) {
-    sendBits(galinfo[gal].bit - (8 * galinfo[gal].uesbytes), 1);
+    sendBits(galinfo[gal].bits - (8 * galinfo[gal].uesbytes), 1);
   }
   for (bit = 0; bit < (8 * galinfo[gal].uesbytes); bit++) {
     addr = galinfo[gal].uesfuse;
@@ -1230,7 +1228,7 @@ static void writeGalFuseMapV750C(const unsigned char* cfgArray, char fillUesStar
     sendBit(getFuseBit(addr));
   }
   if (!fillUesStart) {
-    sendBits(galinfo[gal].bit - (8 * galinfo[gal].uesbytes), 1);
+    sendBits(galinfo[gal].bits - (8 * galinfo[gal].uesbytes), 1);
   }
   sendAddress(7, galinfo[gal].uesrow);
   setPV(1);
@@ -1335,9 +1333,9 @@ static char checkGalTypeViaPes(void)
        } else {
            type = ATF22V10C;
        }
-    else if (pes[5] == 'F' && pes[4]== '7' && pes[3]== '5' && pes[2]== '0' && pes[1]=='C') {
-      type = ATF750C;
     }
+    else if (pes[5] == 'F' && pes[4] == '7' && pes[3] == '5' && pes[2] == '0' && pes[1] =='C') {
+      type = ATF750C;
     }
     else if (pes[6] == 'F' && pes[5] == '1' && pes[4]== '6' && pes[3] == 'V' && pes[2]=='8') {
        type = ATF16V8B;
