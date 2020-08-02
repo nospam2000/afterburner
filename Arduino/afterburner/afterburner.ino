@@ -338,6 +338,25 @@ void testRead() {
     uint8_t v = receiveBit();
     Serial.write(v ? '1' : '0');
   }
+  Serial.println();
+
+  for(uint8_t i = 0; i < 64; i++) {
+    if(i < 10) Serial.write('0');
+    Serial.print(i);
+    Serial.print(F(": "));
+    if (galinfo[gal].cfgmethod == CFG_STROBE_ROW) {
+      strobeRow(i);
+    } else {
+      setRow(i);
+      strobe(1);
+    }
+    //for(bit = 0; bit < galinfo[gal].cfgbits; bit++) {
+    for(bit = 0; bit < 171; bit++) {
+      uint8_t v = receiveBit();
+      Serial.write(v ? '1' : '0');
+    }
+    Serial.println();
+  }
 
   turnOff();	
 }
