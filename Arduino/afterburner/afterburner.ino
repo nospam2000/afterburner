@@ -269,6 +269,81 @@ static char checkGalTypeViaPes(void);
 static void turnOff(void);
 static void printFormatedNumberHex2(unsigned char num) ;
 
+#define TEST750
+#ifdef TEST750
+void testRead() {
+  turnOn(READGAL);
+
+  switch(gal)
+  {
+    case ATF22V10C:
+    case ATF750C:
+      break;
+
+    default:
+      Serial.println(F("unsupported chip"));
+      return;
+      break;
+  }
+
+  const unsigned char* cfgArray = (gal == ATF750C) ? cfgV750 : cfgV10;
+  char useDelay = 1;
+  char doDiscardBits = galinfo[gal].bits - 8 * galinfo[gal].uesbytes;
+  unsigned short cfgAddr = galinfo[gal].cfgbase;
+  unsigned short row, bit;
+  unsigned short addr;
+
+  //const uint8_t maxrow = galinfo[gal].rows - 1;
+  const uint8_t maxrow = 127;
+  // read fuse rows
+  for(row = 0; row <= maxrow; row++) {
+    if(row < 10) Serial.write('0');
+    if(row < 100) Serial.write('0');
+    Serial.print(row, DEC);
+    Serial.print(F(": "));
+    strobeRow(row);
+    for(bit = 0; bit < galinfo[gal].bits; bit++) {
+      uint8_t v = receiveBit();
+      Serial.write(v ? '1' : '0');
+    }
+    Serial.println();
+    if (useDelay) {
+      delay(useDelay);
+    }
+  }
+
+  // read UES
+  Serial.print(F("\nUES: "));
+  strobeRow(galinfo[gal].uesrow);
+  if (doDiscardBits) {
+    discardBits(doDiscardBits);
+  }
+  for(bit = 0; bit < 64; bit++) {
+    uint8_t v = receiveBit();
+    Serial.write(v ? '1' : '0');
+  }
+  if (useDelay) {
+    delay(useDelay);
+  }
+
+  // read CFG
+  Serial.print(F("\n\nCFG: "));
+  if (galinfo[gal].cfgmethod == CFG_STROBE_ROW) {
+    strobeRow(galinfo[gal].cfgrow);
+  } else {
+    setRow(galinfo[gal].cfgrow);
+    strobe(1);
+  }
+  for(bit = 0; bit < galinfo[gal].cfgbits; bit++) {
+    uint8_t v = receiveBit();
+    Serial.write(v ? '1' : '0');
+  }
+
+  turnOff();	
+}
+#endif
+
+
 // print some help on the serial console
 void printHelp(char full) {
   Serial.println(F("AFTerburner v." VERSION));
@@ -1335,7 +1410,10 @@ static char checkGalTypeViaPes(void)
            type = ATF22V10C;
        }
     }
-    else if (pes[5] == 'F' && pes[4] == '7' && pes[3] == '5' && pes[2] == '0' && pes[1] =='C') {
+    else if (pes[8] == 'F' && pes[7] == 'V' && pes[6] == '7' && pes[5] == '5' && pes[4] == '0' && pes[3] =='C') {
+      // && (pes[11] == '0' && pes[10] == '0' && pes[9] == '1'
+      // && pes[2] == '0' && pes[1] == '0' && pes[0] == '3'
+      // complete string at beginning of row 127: "300C057VF100"
       type = ATF750C;
     }
     else if (pes[6] == 'F' && pes[5] == '1' && pes[4]== '6' && pes[3] == 'V' && pes[2]=='8') {
@@ -1609,6 +1687,13 @@ void loop() {
 
     // handle commands received from the serial terminal
     switch (command) {
+
+#ifdef TEST750
+      // read fuse-map from the GAL and print it in the JEDEC form
+      case 'o' : {
+      	testRead();
+      } break;
+#endif
       
       // print some help
       case COMMAND_HELP: {
