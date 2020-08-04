@@ -56,7 +56,7 @@ To compile: gcc -g3 -O0 afterburner afterburner.c
 
 #define MAX_LINE 200
 
-#define MAXFUSES 10000
+#define MAXFUSES 16384
 #define GALBUFSIZE 16384
 
 typedef enum {
@@ -70,6 +70,13 @@ typedef enum {
     ATF750C
 } Galtype;
 
+enum mem_type {
+  mem_type_none = 0,
+  mem_type_fuses = 1,
+  mem_type_ues = 2,
+  mem_type_cfg = 3,
+  mem_type_ext = 4
+};
 
 /* GAL info */
 static struct {
@@ -254,6 +261,27 @@ static char checkArgs(int argc, char** argv) {
     }
 
     return 0;
+}
+
+static void updateCheckSumRange(uint32_t *pa, uint16_t *pc, uint16_t *pe, uint8_t bit) {
+    (*pe)++;
+    if (*pe == 9) {
+        *pe = 1;
+        *pa += *pc;
+        *pc = 0;
+    }
+    *pc >>= 1;
+    if (fusemap[bit]) {
+        *pc += 0x80;
+    }
+}
+static void beginCheckSumRange(uint32_t *pa, uint16_t *pc, uint16_t *pe) {
+    *pa = 0;
+    *pc = 0;
+    *pe = 0;
+}
+static uint16_t endCheckSumRange(uint32_t *pa, uint16_t *pc, uint16_t *pe) {
+    return (uint16_t)((*pc >> (8 - *pe)) + *pa);
 }
 
 static unsigned short checkSum(unsigned short n) {
@@ -644,6 +672,98 @@ static int sendLine(char* buf, int bufSize, int maxDelay) {
     return total;
 }
 
+
+
+// Upload fusemap in byte format (as opposed to bit format used in JEDEC file).
+// the columns/rows are already matrix transposed in the way the programmer needs it
+static char uploadRange(uint8_t rangeStartRow, uint8_t rangeRowCount) {
+    char fuseSet;
+    char buf[MAX_LINE];
+    char line[64];
+    unsigned int j, n;
+    uint16_t fusecount = rangeRowCount * galinfo[gal].bits;
+
+    if (openSerial() != 0) {
+        return -1;
+    }
+
+    // Start  upload
+    sprintf(buf, "u\r");
+    sendLine(buf, MAX_LINE, 20);
+
+    //device type
+    sprintf(buf, "#t %i %s\r", (int) gal, galinfo[gal].name);
+    sendLine(buf, MAX_LINE, 300);
+
+    //fuse map
+    buf[0] = 0;
+    
+    // checksum calculation
+    uint32_t cs_a;
+    uint16_t cs_c, cs_e;
+    beginCheckSumRange(&cs_a, &cs_c, &cs_e);
+
+    fuseSet = 0;
+    uint16_t i = 0;
+    uint8_t f = 0;
+    for(uint8_t row = rangeStartRow; row < (rangeStartRow + rangeRowCount); row++) {
+        for (uint8_t col = 0; col < galinfo[gal].bits; col++, i++) {
+            if (i % (32*8) == 0) {
+                if (i != 0) {
+                    strcat(buf, "\r");
+                    //the buffer contains at least one fuse set to 1
+                    if (fuseSet) {
+    #ifdef DEBUG_UPLOAD
+                        printf("%s\n", buf);
+    #endif
+                        sendLine(buf, MAX_LINE, 100);
+                    }
+                    fuseSet = 0;
+                }
+                sprintf(buf, "#f %04i ", i);
+            }
+            uint16_t addr = galinfo[gal].rows * col + row;
+            uint8_t bit = (addr < galinfo[gal].fuses) && fusemap[addr];
+            if (bit) {
+                f |= (1 << (i & 0x07));
+                fuseSet = 1;
+            }
+            updateCheckSumRange(&cs_a, &cs_c, &cs_e, bit);
+
+            if ((i > 0) && ((i % 8) == 0)) {
+                sprintf(line, "%02X", f);
+                strcat(buf, line);
+                f = 0;
+            }
+        }
+    }
+
+    // send last unfinished f, and fuse line 
+    if (f) {
+        sprintf(line, "%02X", f);
+        strcat(buf, line);
+    }
+
+    if (i % (32*8) && fuseSet) {
+        strcat(buf, "\r");
+#ifdef DEBUG_UPLOAD
+        printf("%s\n", buf);
+#endif
+        sendLine(buf, MAX_LINE, 100);
+    }
+
+    //checksum
+    uint16_t check = endCheckSumRange(&cs_a, &cs_c, &cs_e);
+    if (verbose) {
+        printf("sending csum: %04X\n", check);
+    }
+    sprintf(buf, "#C %04X %04X\r", check, fusecount);
+    sendLine(buf, MAX_LINE, 300);
+
+    //end of upload
+    return sendGenericCommand("#e\r", "Upload failed", 300, 0); 
+}
+
 // Upload fusemap in byte format (as opposed to bit format used in JEDEC file).
 static char upload() {
     char fuseSet;
@@ -741,6 +861,14 @@ static char sendGenericCommand(const char* command, const char* errorText, int m
     return 0;
 }
 
+int min_int(int a, int b) {
+    if(a < b) {
+        return a;
+    }
+
+    return b;
+}
+
 static char operationWriteOrVerify(char doWrite) {
     char buf[MAX_LINE];
     int readSize;
@@ -755,23 +883,90 @@ static char operationWriteOrVerify(char doWrite) {
     if (verbose) {
         printf("parse result=%i\n", result);
     }
-    result = upload();
-    if (result) {
-        return result;
-    }
 
-    // write command
-    if (doWrite) {
-        result = sendGenericCommand("w\r", "write failed ?", 4000, 0);
+    if(gal == ATF750C) {
+        const uint8_t rowBatchSize = 20;
+        char cmd[64 + 1];
+        for(uint8_t row = 0; row < galinfo[gal].rows; row += rowBatchSize)
+        {
+            uint8_t rowCount = min_int(galinfo[gal].rows - row, rowBatchSize);
+            result = uploadRange(row, rowCount);
+            if (result) {
+                return result;
+            }
+
+            // write command
+            if (doWrite) {
+                sprintf(cmd, "W %02hhX %02hhX %02hhX\r", (uint8_t)mem_type_fuses, row, rowCount);
+                result = sendGenericCommand(cmd, "write failed ?", 4000, 0);
+                if (result) {
+                    goto finish;
+                }
+            }
+
+            // verify command
+            if (opVerify) {
+                sprintf(cmd, "V %02hhX %02hhX %02hhX\r", (uint8_t)mem_type_fuses, row, rowCount);
+                result = sendGenericCommand("V\r", "verify failed ?", 4000, 0);
+            }
+        }
+
+        result = uploadRange(galinfo[gal].uesrow, 1);
         if (result) {
-            goto finish;
+            return result;
+        }
+        // write command
+        if (doWrite) {
+            sprintf(cmd, "W %02hhX %02hhX %02hhX\r", (uint8_t)mem_type_ues, (uint8_t)galinfo[gal].uesrow, (uint8_t)1);
+            result = sendGenericCommand(cmd, "write failed ?", 4000, 0);
+            if (result) {
+                goto finish;
+            }
+        }
+        // verify command
+        if (opVerify) {
+            sprintf(cmd, "V %02hhX %02hhX %02hhX\r", (uint8_t)mem_type_ues, (uint8_t)galinfo[gal].uesrow, (uint8_t)1);
+            result = sendGenericCommand(cmd, "verify failed ?", 4000, 0);
+        }
+
+        result = uploadRange(galinfo[gal].cfgrow, 1);
+        if (result) {
+            return result;
+        }
+        // write command
+        if (doWrite) {
+            sprintf(cmd, "W %02hhX %02hhX %02hhX\r", (uint8_t)mem_type_cfg, (uint8_t)galinfo[gal].cfgrow, (uint8_t)1);
+            result = sendGenericCommand(cmd, "write failed ?", 4000, 0);
+            if (result) {
+                goto finish;
+            }
+        }
+        // verify command
+        if (opVerify) {
+            sprintf(cmd, "V %02hhX %02hhX %02hhX\r", (uint8_t)mem_type_cfg, (uint8_t)galinfo[gal].cfgrow, (uint8_t)1);
+            result = sendGenericCommand(cmd, "verify failed ?", 4000, 0);
+        }
+    }
+    else {
+        result = upload();
+        if (result) {
+            return result;
+        }
+
+        // write command
+        if (doWrite) {
+            result = sendGenericCommand("w\r", "write failed ?", 4000, 0);
+            if (result) {
+                goto finish;
+            }
+        }
+
+        // verify command
+        if (opVerify) {
+            result = sendGenericCommand("v\r", "verify failed ?", 4000, 0);
         }
     }
 
-    // verify command
-    if (opVerify) {
-        result = sendGenericCommand("v\r", "verify failed ?", 4000, 0);
-    }
 finish:
     closeSerial();
     return result;
@@ -894,13 +1089,42 @@ static char operationReadFuses(void) {
     sendLine(buf, MAX_LINE, 1000);
 
     //READ_FUSE command
-    sprintf(buf, "r\r");
-    readSize = sendLine(buf, GALBUFSIZE, 5000);
-    if (readSize < 0)  {
-        return -1;
+    if(gal == ATF750C) {
+        const uint8_t rowBatchSize = 20;
+        char cmd[64 + 1];
+        for(uint8_t row = 0; row < galinfo[gal].rows; row += rowBatchSize)
+        {
+            uint8_t rowCount = min_int(galinfo[gal].rows - row, rowBatchSize);
+            sprintf(cmd, "R %02X %02X %02X\r", mem_type_fuses, row, rowCount);
+            readSize = sendLine(buf, GALBUFSIZE, 5000);
+            response = stripPrompt(buf);
+            // TODO: transpose galbuf to fusemap
+        }
+
+        // UES
+        sprintf(buf, "R %02X %02X %02X\r", (uint8_t)mem_type_ues, (uint8_t)galinfo[gal].uesrow, (uint8_t)1);
+        readSize = sendLine(buf, GALBUFSIZE, 5000);
+        response = stripPrompt(buf);
+        // TODO: add output to fusemap
+
+        // CFG
+        sprintf(buf, "R %02hhX %02hhX %02hhX\r", (uint8_t)mem_type_cfg, (uint8_t)galinfo[gal].cfgrow, (uint8_t)1);
+        readSize = sendLine(buf, GALBUFSIZE, 5000);
+        response = stripPrompt(buf);
+        // TODO: add output to fusemap
+
+        // TODO: print fusemap
     }
-    response = stripPrompt(buf);
-    printf("%s\n", response);
+    else
+    {
+        sprintf(buf, "r\r");
+        readSize = sendLine(buf, GALBUFSIZE, 5000);
+        if (readSize < 0)  {
+            return -1;
+        }
+        response = stripPrompt(buf);
+        printf("%s\n", response);
+    }
 
     closeSerial();
 
