@@ -1091,11 +1091,10 @@ static char operationReadFuses(void) {
     //READ_FUSE command
     if(gal == ATF750C) {
         const uint8_t rowBatchSize = 20;
-        char cmd[64 + 1];
         for(uint8_t row = 0; row < galinfo[gal].rows; row += rowBatchSize)
         {
             uint8_t rowCount = min_int(galinfo[gal].rows - row, rowBatchSize);
-            sprintf(cmd, "R %02X %02X %02X\r", mem_type_fuses, row, rowCount);
+            sprintf(buf, "R %02X %02X %02X\r", mem_type_fuses, row, rowCount);
             readSize = sendLine(buf, GALBUFSIZE, 5000);
             response = stripPrompt(buf);
             // TODO: transpose galbuf to fusemap
