@@ -263,7 +263,7 @@ static char checkArgs(int argc, char** argv) {
     return 0;
 }
 
-static void updateCheckSumRange(uint32_t *pa, uint16_t *pc, uint16_t *pe, uint8_t bit) {
+static void updateCheckSumRange(uint32_t *pa, uint16_t *pc, uint16_t *pe, uint8_t bitVal) {
     (*pe)++;
     if (*pe == 9) {
         *pe = 1;
@@ -271,7 +271,7 @@ static void updateCheckSumRange(uint32_t *pa, uint16_t *pc, uint16_t *pe, uint8_
         *pc = 0;
     }
     *pc >>= 1;
-    if (fusemap[bit]) {
+    if (bitVal) {
         *pc += 0x80;
     }
 }
@@ -723,12 +723,12 @@ static char uploadRange(uint8_t rangeStartRow, uint8_t rangeRowCount) {
                 sprintf(buf, "#f %04i ", i);
             }
             uint16_t addr = galinfo[gal].rows * col + row;
-            uint8_t bit = (addr < galinfo[gal].fuses) && fusemap[addr];
-            if (bit) {
+            uint8_t bitVal = (addr < galinfo[gal].fuses) && fusemap[addr];
+            if (bitVal) {
                 f |= (1 << (i & 0x07));
                 fuseSet = 1;
             }
-            updateCheckSumRange(&cs_a, &cs_c, &cs_e, bit);
+            updateCheckSumRange(&cs_a, &cs_c, &cs_e, bitVal);
 
             if ((i > 0) && ((i % 8) == 0)) {
                 sprintf(line, "%02X", f);
@@ -1067,6 +1067,72 @@ static char operationEraseGal(void) {
     return result;
 }
 
+// sets a fuse bit on particular position
+// expects that the fusemap was cleared (set to zero) beforehand
+static void setFuseBit(uint8_t bitPos) {
+    fusemap[bitPos >> 3] |= (1 << (bitPos & 7));
+}
+
+static uint16_t skipNewlines(char **pos) {
+  uint16_t count = 0;
+  while(**pos == '\r' || **pos == '\n') {
+    (*pos)++;
+    count++;
+  }
+  
+  return count;
+}
+
+static int readOneRange(char *buf, enum mem_type mem, uint8_t startRow, uint8_t rowCount, uint8_t rowLen) {
+    // checksum calculation
+    uint32_t cs_a;
+    uint16_t cs_c, cs_e;
+
+    sprintf(buf, "R %02X %02X %02X\r", mem, startRow, rowCount);
+    int readSize = sendLine(buf, GALBUFSIZE, 5000);
+    char *pos = stripPrompt(buf);
+    beginCheckSumRange(&cs_a, &cs_c, &cs_e);
+    for(uint8_t i = 0; i < rowCount; i++) {
+        uint8_t r;
+        int cnt = sscanf(pos, "%02hhX", &r);
+        if(cnt != 1)
+            goto parseError;
+        pos += 3;
+        uint8_t hexval = 0;
+        for(uint8_t j = 0; j < rowLen; j++) {
+            if((j & 0x07) == 0) { // get next hex value
+                cnt = sscanf(pos, "%02hhX", &hexval);
+                if(cnt != 1)
+                    goto parseError;
+                pos += 2;
+            }
+            uint8_t bitVal = (hexval & (1 << i)) ? 0x01 : 0x00;
+            if(bitVal) {
+                uint16_t addr = galinfo[gal].rows * j + (startRow + i);
+                setFuseBit(addr);
+            }
+            updateCheckSumRange(&cs_a, &cs_c, &cs_e, bitVal);
+        }
+        if(skipNewlines(&pos) == 0)
+            goto parseError;
+    }
+
+    uint16_t csCalc = endCheckSumRange(&cs_a, &cs_c, &cs_e);
+    uint16_t csReceived;
+    int cnt = sscanf(pos, "%04hX", &csReceived);
+    if(cnt != 1) goto parseError;
+    if(csCalc != csReceived) {
+        printf("Error: Checksum of received data is incorrect\n");
+        goto parseError;
+    }
+
+    return 1;
+
+parseError:
+    return 0;
+}
+
+
 static char operationReadFuses(void) {
     char* response;
     char* buf = galbuffer;
@@ -1088,31 +1154,31 @@ static char operationReadFuses(void) {
     sprintf(buf, "#e\r");
     sendLine(buf, MAX_LINE, 1000);
 
-    //READ_FUSE command
     if(gal == ATF750C) {
-        const uint8_t rowBatchSize = 20;
+        //const uint8_t rowBatchSize = 30; // limited by memory of ATMega328, currently 737 byte => 30
+        const uint8_t rowBatchSize = 3; // limited by memory of ATMega328, currently 737 byte => 30
+
+        // fuses
         for(uint8_t row = 0; row < galinfo[gal].rows; row += rowBatchSize)
         {
             uint8_t rowCount = min_int(galinfo[gal].rows - row, rowBatchSize);
-            sprintf(buf, "R %02X %02X %02X\r", mem_type_fuses, row, rowCount);
-            readSize = sendLine(buf, GALBUFSIZE, 5000);
-            response = stripPrompt(buf);
-            // TODO: transpose galbuf to fusemap
+            if(!readOneRange(buf, mem_type_fuses, row, rowCount, galinfo[gal].bits))
+                goto parseError;
         }
 
         // UES
-        sprintf(buf, "R %02X %02X %02X\r", (uint8_t)mem_type_ues, (uint8_t)galinfo[gal].uesrow, (uint8_t)1);
-        readSize = sendLine(buf, GALBUFSIZE, 5000);
-        response = stripPrompt(buf);
-        // TODO: add output to fusemap
+        if(!readOneRange(buf, mem_type_ues, (uint8_t)galinfo[gal].uesrow, 1, (uint8_t)(galinfo[gal].uesbytes * 8)))
+            goto parseError;
 
         // CFG
-        sprintf(buf, "R %02hhX %02hhX %02hhX\r", (uint8_t)mem_type_cfg, (uint8_t)galinfo[gal].cfgrow, (uint8_t)1);
-        readSize = sendLine(buf, GALBUFSIZE, 5000);
-        response = stripPrompt(buf);
-        // TODO: add output to fusemap
+        if(!readOneRange(buf, mem_type_cfg, (uint8_t)galinfo[gal].cfgrow, 1, (uint8_t)(galinfo[gal].cfgbits)))
+            goto parseError;
 
         // TODO: print fusemap
+
+    parseError:
+      ;;
+
     }
     else
     {

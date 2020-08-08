@@ -1737,16 +1737,15 @@ static void printJedecRange()
   uint16_t csBitCount = 0;
 
   if(rangeMemType == range_mem_type::fuses) {
+    csBitCount = galinfo[gal].bits * rangeRowCount;
     for(row = rangeStartRow; row < (rangeStartRow + rangeRowCount); row++) {
       printFormatedNumberHex2(row);
       Serial.write(' ');
       for(bit = 0; bit < ((galinfo[gal].bits + 7) & 0xfff8); bit += 8) {
         addr = galinfo[gal].bits * (row - rangeStartRow) + bit;
         uint8_t b = 0;
-        for(uint8_t i = 0; i < 8; i++) {
-          b <<= 1;
-          b |= (bit < galinfo[gal].bits) ? getFuseBit(addr + i) : 0;
-          csBitCount++;
+        for(uint8_t i = 0; (i < 8) && ((bit + i) < galinfo[gal].bits); i++) {
+          b |= getFuseBit(addr + i) ? (1 << i) : 0;
         }
         printFormatedNumberHex2(b);
       }
@@ -1755,6 +1754,7 @@ static void printJedecRange()
   }
 
   if(rangeMemType == range_mem_type::ues) {
+    csBitCount = galinfo[gal].uesbytes * 8;
     row = 0;
     printFormatedNumberHex2(row);
     Serial.write(' ');
@@ -1762,9 +1762,7 @@ static void printJedecRange()
       addr = bit;
       uint8_t b = 0;
       for(uint8_t i = 0; i < 8; i++) {
-        b <<= 1;
-        b |= getFuseBit(addr + i);
-        csBitCount++;
+        b |= getFuseBit(addr + i) ? (1 << i) : 0;
       }
       printFormatedNumberHex2(b);
     }
@@ -1772,6 +1770,7 @@ static void printJedecRange()
   }
 
   if(rangeMemType == range_mem_type::cfg) {
+    csBitCount = galinfo[gal].cfgbits;
     row = 0;
     printFormatedNumberHex2(row);
     Serial.write(' ');
@@ -1779,9 +1778,7 @@ static void printJedecRange()
       addr = bit;
       uint8_t b = 0;
       for(uint8_t i = 0; i < 8; i++) {
-        b <<= 1;
-        b |= getFuseBit(addr + i);
-        csBitCount++;
+        b |= getFuseBit(addr + i) ? (1 << i) : 0;
       }
       printFormatedNumberHex2(b);
     }
@@ -1789,7 +1786,7 @@ static void printJedecRange()
   }
   
   uint16_t check = checkSum(csBitCount);
-  printFormatedNumberHex4(row);
+  printFormatedNumberHex4(check);
   Serial.write('\r');
 }
 
