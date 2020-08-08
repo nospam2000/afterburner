@@ -78,6 +78,7 @@ enum mem_type {
   mem_type_ext = 4
 };
 
+#if 0
 /* GAL info */
 static struct {
     Galtype type;
@@ -107,6 +108,122 @@ galinfo[] = {
     {ATF22V10C, 0x00, 0x00, "ATF22V10C", 5892, 24, 44, 132, 44, 5828, 8, 61, 60, 58, 10, 16, 20},
     {ATF750C,   0x00, 0x00, "ATF750C",  14499, 24, 84, 171, 84,14435, 8, 61, 60,127, 10, 16, 30+1+40},
 };
+#else
+
+#define CFG_BASE_16 2048
+#define CFG_BASE_20 2560
+#define CFG_BASE_22 5808
+#define CFG_BASE_750 14364
+//#define CFG_BASE_750EXT 14395
+
+#define CFG_STROBE_ROW 0
+#define CFG_SET_ROW 1
+
+// common CFG fuse address map for cfg16V8 and cfg20V8
+// the only difference is the starting address: 2048 for cfg16V8 and 2560 for cfg20V8
+// total size: 82
+static const unsigned char cfgV8[]=
+{
+      80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,
+      0,1,2,3,
+      145,
+      72,73,74,75,76,77,78,79,
+      144,
+      4,5,6,7,
+      112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128,129,130,131,132,133,134,135,136,137,138,139,140,141,142,143,
+};
+
+// common CFG fuse address map for cfg16V8AB and cfg20V8AB
+// the only difference is the starting address: 2048 for cfg16V8AB and 2560 for cfg20V8AB
+// total size: 82
+static const unsigned char cfgV8AB[]=
+{
+      0,1,2,3,
+      145,
+      72,73,74,75,
+      80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128,129,130,131,132,133,134,135,136,137,138,139,140,141,142,143,
+      76,77,78,79,
+      144,
+      4,5,6,7,
+};
+
+// common CFG fuse address map for cfg22V10
+// starting address: 5808
+static const unsigned char cfgV10[]=
+{
+      1,0,3,2,5,4,7,6,9,8,11,10,13,12,15,14,17,16,19,18,
+      // TODO: is the value 84 for Powerdown fuse missing here?
+};
+
+static const unsigned char cfgV750[]=
+{
+    // TODO: order is not clear
+      2,  1,  0,   34, 33, 32, 31, // 0 offset
+      5,  4,  3,   38, 37, 36, 35, // 7
+      8,  7,  6,   42, 41, 40, 39, // 14
+     11, 10,  9,   46, 45, 44, 43, // 21
+     14, 13, 12,   50, 49, 48, 47, // 28
+     17, 16, 15,   54, 53, 52, 51, // 35
+     20, 19, 18,   58, 57, 56, 55, // 42
+     23, 22, 21,   62, 61, 60, 59, // 49
+     26, 25, 24,   66, 65, 64, 63, // 56
+     29, 28, 27,   70, 69, 68, 67, // 63
+
+     // TODO: unclear how to handle those:
+    30,  // 75: Security?
+/*
+     135, // 70: Powerdown
+     136, // 71: PinKeeper
+     137, // 72: unknown
+     138, // 73: unknown
+     139, // 74: unknown
+*/
+};
+
+
+//   UES     user electronic signature
+//   PES     programmer electronic signature (ATF = text string, others = Vendor/Vpp/timing)
+//   cfg     configuration bits for OLMCs
+
+
+static struct
+{
+    Galtype type;
+    unsigned char id0,id1;          /* variant 1, variant 2 (eg. 16V8=0x00, 16V8A+=0x1A)*/
+    const char *name;               /* pointer to chip name               */
+    short fuses;                    /* total number of fuses              */
+    char pins;                      /* number of pins on chip             */
+    char rows;                      /* number of fuse rows                */
+    unsigned char bits;             /* number of fuses per row            */
+    char uesrow;                    /* UES row number                     */
+    short uesfuse;                  /* first UES fuse number              */
+    char uesbytes;                  /* number of UES bytes                */
+    char eraserow;                  /* row adddeess for erase             */
+    char eraseallrow;               /* row address for erase all          */
+    char pesrow;                    /* row address for PES read/write     */
+    char pesbytes;                  /* number of PES bytes                */
+    char cfgrow;                    /* row address of config bits         */
+    unsigned short cfgbase;         /* base address of the config bit numbers */
+    const unsigned char *cfg;       /* pointer to config bit numbers      */
+    unsigned char cfgbits;          /* number of config bits              */
+    unsigned char cfgmethod;        /* strobe or set row for reading config */
+}
+galinfo[]=
+{
+//                                      + fuses         + bits       +uesbytes   +pesrow          +cfgbase
+//                                      |     +pins     |  +uesrow   |  +eraserow|   +pesbytes    |        +cfg
+//   +-- type   + id0 + id1  +- name    |     |   +rows |  |   +uesfuse |   +eraseallrow +cfgrow  |        |       + cfgbits        +cfgmethod
+//   |          |     |      |          |     |   |     |  |   |     |  |   |    |   |   |        |        |       |                |
+    {UNKNOWN,   0x00, 0x00, "unknown",     0,  0,  0,   0,  0,    0, 0,  0,  0,  0,  8,  0,       0,        NULL,      0         , 0},
+    {GAL16V8,   0x00, 0x1A, "GAL16V8",  2194, 20, 32,  64, 32, 2056, 8, 63, 54, 58,  8, 60, CFG_BASE_16, cfgV8AB, sizeof(cfgV8AB), CFG_STROBE_ROW},
+    {GAL20V8,   0x20, 0x3A, "GAL20V8",  2706, 24, 40,  64, 40, 2568, 8, 63, 59, 58,  8, 60, CFG_BASE_20, cfgV8AB, sizeof(cfgV8AB), CFG_STROBE_ROW},
+    {GAL22V10,  0x48, 0x49, "GAL22V10", 5892, 24, 44, 132, 44, 5828, 8, 61, 60, 58, 10, 16, CFG_BASE_22, cfgV10,  sizeof(cfgV10) , CFG_SET_ROW   },
+    {ATF16V8B,  0x00, 0x00, "ATF16V8B", 2194, 20, 32,  64, 32, 2056, 8, 63, 54, 58,  8, 60, CFG_BASE_16, cfgV8AB, sizeof(cfgV8AB), CFG_STROBE_ROW},
+    {ATF22V10B, 0x00, 0x00, "ATF22V10B",5892, 24, 44, 132, 44, 5828, 8, 61, 60, 58, 10, 16, CFG_BASE_22, cfgV10,  sizeof(cfgV10) , CFG_SET_ROW   },
+    {ATF22V10C, 0x00, 0x00, "ATF22V10C",5892, 24, 44, 132, 44, 5828, 8, 61, 60, 58, 10, 16, CFG_BASE_22, cfgV10,  sizeof(cfgV10) , CFG_SET_ROW   },
+    {ATF750C,   0x00, 0x00, "ATF750C", 14499, 24, 84, 171, 84,14435, 8, 61, 60,127, 12, 16, CFG_BASE_750,cfgV750, sizeof(cfgV750), CFG_SET_ROW   }, // TODO: not all numbers are clear
+};
+#endif
 
 char verbose = 0;
 char* filename = 0;
@@ -1078,7 +1195,7 @@ static uint16_t skipNewlines(char **pos) {
 }
 
 static int readOneRange(char *buf, enum mem_type mem, uint8_t startRow, uint8_t rowCount, uint8_t rowLen) {
-    // checksum calculation
+    // for checksum calculation
     uint32_t cs_a;
     uint16_t cs_c, cs_e;
 
@@ -1091,7 +1208,7 @@ static int readOneRange(char *buf, enum mem_type mem, uint8_t startRow, uint8_t 
         int cnt = sscanf(pos, "%02hhX", &r);
         if(cnt != 1)
             goto parseError;
-        pos += 3;
+        pos += 2 + 1;
         uint8_t hexval = 0;
         for(uint8_t j = 0; j < rowLen; j++) {
             if((j & 0x07) == 0) { // get next hex value
@@ -1100,12 +1217,10 @@ static int readOneRange(char *buf, enum mem_type mem, uint8_t startRow, uint8_t 
                     goto parseError;
                 pos += 2;
             }
-            uint8_t bitVal = (hexval & (1 << (j & 0x03))) ? 0x01 : 0x00;
-            if(bitVal) {
-                uint16_t addr = galinfo[gal].rows * j + (startRow + i);
-                fusemap[addr] = bitVal;
-            }
+            uint8_t bitVal = (hexval & (1 << (j & 0x07))) ? 0x01 : 0x00;
             updateCheckSumRange(&cs_a, &cs_c, &cs_e, bitVal);
+            uint16_t addr = galinfo[gal].rows * j + (startRow + i);
+            fusemap[addr] = bitVal;
         }
         if(skipNewlines(&pos) == 0)
             goto parseError;
@@ -1124,6 +1239,103 @@ static int readOneRange(char *buf, enum mem_type mem, uint8_t startRow, uint8_t 
 
 parseError:
     return 0;
+}
+
+
+static void printJedec() {
+    printf("JEDEC file for %s\n", galinfo[gal].name);
+    printf("*QP%d", galinfo[gal].pins);
+    printf("*QF%d", galinfo[gal].fuses);
+    printf("*QV0*F0*G0*X0*\n");
+
+    unsigned short i, j, k, n;
+    unsigned char unused, start;
+    char line[128+1];
+    
+    for( i = k = 0; i < galinfo[gal].bits; i++) {
+        unused = 1;
+        sprintf(line, "L%05d ", k);
+        n = 1+5+1;
+        for(j= 0; j < galinfo[gal].rows; j++, k++) {
+           if (fusemap[k]) {
+              unused = 0;
+              line[n++] = '1';
+           } else {
+              line[n++] = '0';
+           }
+        }
+        line[n++] = '*';
+        line[n++] = 0;
+        if (!unused) {
+          printf("%s\n", line);
+        }
+    }
+
+    if( k < galinfo[gal].uesfuse) {
+        unused = 1;
+        sprintf(line, "L%05d ", k);
+        n = 1+5+1;
+
+        while(k < galinfo[gal].uesfuse) {
+           if (fusemap[k]) {
+              unused = 0;
+              line[n++] = '1';
+           } else {
+              line[n++] = '0';
+           }
+           k++;
+        }
+        line[n++] = '*';
+        line[n++] = 0;
+        if (!unused) {
+          printf("%s\n", line);
+        }
+    }
+    line[0] = 0;
+
+    printf("N UES");
+    for (j = 0;j < galinfo[gal].uesbytes; j++) {
+        n = 0;
+        for (i = 0; i < 8; i++) {
+            if (fusemap[k + 8 * j + i]) {
+                if ((gal == ATF22V10C) || (gal == ATF750C)) {
+                    n |= 1 << (7 - i);  // big-endian
+                }
+                else {
+                    n |= 1 << i;     // little-endian
+                }
+            }
+        }
+        printf(" %02X", n);
+    }
+
+    printf("*\nL%05d ", k);
+    for(j = 0; j < 8 * galinfo[gal].uesbytes; j++) {
+      if (fusemap[k++]) {
+         printf("1");
+      } else {
+         printf("0");
+      }
+    }
+
+    if (k < galinfo[gal].fuses) {
+      printf("*\nL%05d ", k);
+      while( k < galinfo[gal].fuses) {
+        if (fusemap[k++]) {
+           printf("1");
+        } else {
+           printf("0");
+        }
+      }
+    }
+
+    /* TODO: get pes data
+    printf("*N PES");
+    for(i = 0; i < galinfo[gal].pesbytes; i++) {
+        printf(" %02X", pes[i]);
+    }
+     */
+    printf("*\nC%04X\n*", checkSum(galinfo[gal].fuses));
 }
 
 
@@ -1149,8 +1361,7 @@ static char operationReadFuses(void) {
     sendLine(buf, MAX_LINE, 1000);
 
     if(gal == ATF750C) {
-        //const uint8_t rowBatchSize = 30; // limited by memory of ATMega328, currently 737 byte => 30
-        const uint8_t rowBatchSize = 3; // limited by memory of ATMega328, currently 737 byte => 30
+        const uint8_t rowBatchSize = 30; // limited by memory of ATMega328, currently 737 byte => 30
 
         // fuses
         for(uint8_t row = 0; row < galinfo[gal].rows; row += rowBatchSize)
@@ -1168,11 +1379,13 @@ static char operationReadFuses(void) {
         if(!readOneRange(buf, mem_type_cfg, (uint8_t)galinfo[gal].cfgrow, 1, (uint8_t)(galinfo[gal].cfgbits)))
             goto parseError;
 
-        // TODO: print fusemap
+        printJedec();
+        closeSerial();
+        return 0;
 
-    parseError:
-      ;;
-
+parseError:
+        closeSerial();
+        return -1;
     }
     else
     {
