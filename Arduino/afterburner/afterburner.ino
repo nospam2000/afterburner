@@ -1733,9 +1733,9 @@ static unsigned short checkSum(unsigned short n)
 // each line is prefixed by row number in hex (2 digits)
 static void printJedecRange()
 {
-  unsigned short row, bit, addr;
+  uint16_t row, bit, addr;
+  uint16_t csBitCount = 0;
 
-  // TODO: add checksum
   if(rangeMemType == range_mem_type::fuses) {
     for(row = rangeStartRow; row < (rangeStartRow + rangeRowCount); row++) {
       printFormatedNumberHex2(row);
@@ -1744,8 +1744,9 @@ static void printJedecRange()
         addr = galinfo[gal].bits * (row - rangeStartRow) + bit;
         uint8_t b = 0;
         for(uint8_t i = 0; i < 8; i++) {
-	        b <<= 1;
-	        b |= (bit < galinfo[gal].bits) ? getFuseBit(addr + i) : 0;
+          b <<= 1;
+          b |= (bit < galinfo[gal].bits) ? getFuseBit(addr + i) : 0;
+          csBitCount++;
         }
         printFormatedNumberHex2(b);
       }
@@ -1763,6 +1764,7 @@ static void printJedecRange()
       for(uint8_t i = 0; i < 8; i++) {
         b <<= 1;
         b |= getFuseBit(addr + i);
+        csBitCount++;
       }
       printFormatedNumberHex2(b);
     }
@@ -1779,11 +1781,16 @@ static void printJedecRange()
       for(uint8_t i = 0; i < 8; i++) {
         b <<= 1;
         b |= getFuseBit(addr + i);
+        csBitCount++;
       }
       printFormatedNumberHex2(b);
     }
     Serial.write('\r');
   }
+  
+  uint16_t check = checkSum(csBitCount);
+  printFormatedNumberHex4(row);
+  Serial.write('\r');
 }
 
 // prints the contents of fuse-map array in the form of JEDEC text file
