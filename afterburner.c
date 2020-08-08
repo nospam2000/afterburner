@@ -57,7 +57,7 @@ To compile: gcc -g3 -O0 afterburner afterburner.c
 #define MAX_LINE 200
 
 #define MAXFUSES 16384
-#define GALBUFSIZE 16384
+#define GALBUFSIZE 32768 // can even lengthly test vectors
 
 typedef enum {
     UNKNOWN,
@@ -1067,12 +1067,6 @@ static char operationEraseGal(void) {
     return result;
 }
 
-// sets a fuse bit on particular position
-// expects that the fusemap was cleared (set to zero) beforehand
-static void setFuseBit(uint8_t bitPos) {
-    fusemap[bitPos >> 3] |= (1 << (bitPos & 7));
-}
-
 static uint16_t skipNewlines(char **pos) {
   uint16_t count = 0;
   while(**pos == '\r' || **pos == '\n') {
@@ -1106,10 +1100,10 @@ static int readOneRange(char *buf, enum mem_type mem, uint8_t startRow, uint8_t 
                     goto parseError;
                 pos += 2;
             }
-            uint8_t bitVal = (hexval & (1 << i)) ? 0x01 : 0x00;
+            uint8_t bitVal = (hexval & (1 << (j & 0x03))) ? 0x01 : 0x00;
             if(bitVal) {
                 uint16_t addr = galinfo[gal].rows * j + (startRow + i);
-                setFuseBit(addr);
+                fusemap[addr] = bitVal;
             }
             updateCheckSumRange(&cs_a, &cs_c, &cs_e, bitVal);
         }
