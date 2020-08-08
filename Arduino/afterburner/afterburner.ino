@@ -1727,6 +1727,34 @@ static unsigned short checkSum(unsigned short n)
     return (unsigned short)((c >> (8 - e)) + a);
 }
 
+// this prints not really JEDEC format, the tranpose of the fuse area is NOT done
+// here (it's not possible because only a part of the data is in the buffer)
+// and the data is printed in hex so the length is rounded up to be a multiple of 8 bits
+static void printJedecRange()
+{
+  unsigned short row, bit, addr;
+
+  // TODO: add checksum
+  if(rangeMemType == range_mem_type::fuses) {
+    // read fuse rows
+    for(row = rangeStartRow; row < (rangeStartRow + rangeRowCount); row++) {
+      Serial.print(row, DEC);
+      Serial.write(' ');
+      for(bit = 0; bit < ((galinfo[gal].bits + 7) & 0xfff8); bit += 8) {
+        addr = galinfo[gal].bits * (row - rangeStartRow) + bit;
+        uint8_t b = 0;
+        for(uint8_t i = 0; i < 8; i++) {
+	        b <<= 1;
+	        b |= (bit < galinfo[gal].bits) ? getFuseBit(addr + i) : 0;
+        }
+        printFormatedNumberHex2(b);
+      }
+      Serial.write('\r');
+    }
+  }
+
+  //TODO: handle other mem types
+}
 
 // prints the contents of fuse-map array in the form of JEDEC text file
 static void printJedec()
@@ -1954,6 +1982,7 @@ void loop() {
       case COMMAND_READ_FUSES_RANGE : {
         parseRangeOptions();
         readOrVerifyGal(0); //just read, no verification
+        printJedecRange();
       } break;
 
       // read fuse-map from the GAL and print it in the JEDEC form
