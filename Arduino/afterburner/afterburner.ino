@@ -466,6 +466,8 @@ char handleTerminalCommands() {
     } else {
       lineIndex++;
     }
+
+    if(!endOfLine) delay(20); // wait some time to receive the rest of a long line
   }
   if (endOfLine) {
     c = COMMAND_NONE;
@@ -476,7 +478,11 @@ char handleTerminalCommands() {
     } else if (lineIndex  > 2) {
       c = line[0];  
       if (!isUploading || c != '#') {
-        if (c != COMMAND_SET_GAL_TYPE) {
+        if ((   c != COMMAND_SET_GAL_TYPE)
+            && (c != COMMAND_READ_FUSES_RANGE)
+            && (c != COMMAND_WRITE_FUSES_RANGE)
+            && (c != COMMAND_VERIFY_FUSES_RANGE)
+        ) {
           c = COMMAND_UNKNOWN; 
         }
       }
@@ -2013,7 +2019,9 @@ void loop() {
       } break;
       default: {
         if (command != COMMAND_NONE) {
-          Serial.print(F("ER Unknown command: "));
+          Serial.print(F("ER Unknown command: '"));
+          Serial.write(command);
+          Serial.print(F("' / "));
           Serial.println(line);
         }
       }
