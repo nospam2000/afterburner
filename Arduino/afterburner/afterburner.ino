@@ -191,15 +191,15 @@ static const unsigned char cfgV750[]=
      26, 25, 24,   66, 65, 64, 63, // 56
      29, 28, 27,   70, 69, 68, 67, // 63
 
-     // TODO: unclear how to handle those:
-     135, // 70: Powerdown
-     /*
-     136, // 71: PinKeeper
-     137, // 72: unknown
-     138, // 73: unknown
-     139, // 74: unknown
-     30,  // 75: Security?
-     */
+    // TODO: unclear how to handle those:
+    30,  // 75: Security?
+/*
+    135, // 70: Powerdown
+    136, // 71: PinKeeper
+    137, // 72: unknown
+    138, // 73: unknown
+    139, // 74: unknown
+*/
 };
 
 
@@ -1305,7 +1305,6 @@ static unsigned short verifyGalFuseMap(const unsigned char* cfgArray, char useDe
 static void readOrVerifyGal(char verify)
 {
   unsigned short i;
-  unsigned char* cfgArray = (unsigned char*) cfgV8;
 
   //ensure fusemap is cleared before READ operation, keep it for VERIFY operation.
   if (!verify) {
@@ -1319,7 +1318,8 @@ static void readOrVerifyGal(char verify)
   switch(gal)
   {
     case GAL16V8:
-    case GAL20V8:
+    case GAL20V8: {
+        unsigned char* cfgArray = (unsigned char*) cfgV8;
         if (pes[2] == 0x1A || pes[2] == 0x3A) {
           cfgArray = (unsigned char*) cfgV8AB;
         }
@@ -1328,15 +1328,15 @@ static void readOrVerifyGal(char verify)
           i = verifyGalFuseMap(cfgArray, 0, 0);
         } else {
           readGalFuseMap(cfgArray, 0, 0);
-        }
+        }}
         break;
       
     case ATF16V8B:
         //read without delay, no discard
         if (verify) {
-          i = verifyGalFuseMap(cfgV8AB, 0, 0);
+          i = verifyGalFuseMap(galinfo[gal].cfg, 0, 0);
         } else {
-          readGalFuseMap(cfgV8AB, 0, 0);
+          readGalFuseMap(galinfo[gal].cfg, 0, 0);
         }
         break;
       
@@ -1345,10 +1345,10 @@ static void readOrVerifyGal(char verify)
     case ATF22V10C:
       //read with delay 1 ms, discard 68 cfg bits on ATF22V10B/C and 107 on ATF750C
       if (verify) {
-        i = verifyGalFuseMap(cfgV10, 1,
+        i = verifyGalFuseMap(galinfo[gal].cfg, 1,
            (gal == GAL22V10) ? 0 : galinfo[gal].bits - 8 * galinfo[gal].uesbytes);
       } else {
-        readGalFuseMap(cfgV10, 1,
+        readGalFuseMap(galinfo[gal].cfg, 1,
           (gal == GAL22V10) ? 0 : galinfo[gal].bits - 8 * galinfo[gal].uesbytes);
       } 
       break;
@@ -1356,9 +1356,9 @@ static void readOrVerifyGal(char verify)
     case ATF750C:
       //read with delay 1 ms, discard 107 bits on ATF750C
       if (verify) {
-        i = verifyGalFuseMapRange(cfgV750, 1, galinfo[gal].bits - 8 * galinfo[gal].uesbytes);
+        i = verifyGalFuseMapRange(galinfo[gal].cfg, 1, galinfo[gal].bits - 8 * galinfo[gal].uesbytes);
       } else {
-        readGalFuseMapRange(cfgV750, 1, galinfo[gal].bits - 8 * galinfo[gal].uesbytes);
+        readGalFuseMapRange(galinfo[gal].cfg, 1, galinfo[gal].bits - 8 * galinfo[gal].uesbytes);
       } 
       break;
   }
