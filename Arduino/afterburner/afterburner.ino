@@ -470,6 +470,7 @@ char handleTerminalCommands() {
   }
   if (endOfLine) {
     c = COMMAND_NONE;
+    line[lineIndex] = 0;
 
     //single letter command entered
     if (lineIndex == 2) {
@@ -488,7 +489,6 @@ char handleTerminalCommands() {
     }
     if (!isUploading) {
       Serial.println();
-      line[lineIndex] = 0;
       lineIndex = 0;
     }
     endOfLine = 0;
@@ -599,7 +599,7 @@ void parseUploadLine() {
         byteCount--;
       byteCount = (byteCount - 8) / 2;
       uint8_t pos = 8;
-      for(uint8_t i = 0; i < byteCount; i++, pos += 2, addr += 8) {
+      for(uint8_t i = 0; i < byteCount; i++) {
         uint8_t v = parse2hex(pos);
         if (v) {
           for (uint8_t j = 0; j < 8; j++) {
@@ -609,6 +609,8 @@ void parseUploadLine() {
             }
           }
         }
+        pos += 2;
+        addr += 8;
       }
 
       //any fuse being set is considered as uploaded fuse map
