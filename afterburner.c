@@ -1002,9 +1002,16 @@ static char operationWriteOrVerify(char doWrite) {
         printf("parse result=%i\n", result);
     }
 
+    // do typecheck only once for the whole sequence
+    uint8_t doTypeCheck = 1;
+
     if(gal == ATF750C) {
         const uint8_t rowBatchSize = 30;
         char cmd[64 + 1];
+
+        // enable type check
+        result = sendGenericCommand("f\r", "ignore: enable typeCheck failed ?", 0, 0);
+
         for(uint8_t row = 0; row < galinfo[gal].rows; row += rowBatchSize)
         {
             uint8_t rowCount = min_int(galinfo[gal].rows - row, rowBatchSize);
@@ -1022,38 +1029,57 @@ static char operationWriteOrVerify(char doWrite) {
                 }
             }
 
+            // disable type check
+            if(doTypeCheck) {
+                doTypeCheck = 0;
+                result = sendGenericCommand("F\r", "ignore: disable typeCheck failed ?", 0, 0);
+            }
+
             // verify command
             if (opVerify) {
                 sprintf(cmd, "V %02hhX %02hhX %02hhX\r", (uint8_t)mem_type_fuses, row, rowCount);
                 result = sendGenericCommand("V\r", "verify failed ?", 4000, 0);
+                if (result) {
+                    goto finish;
+                }
             }
         }
 
+        // UES
         result = uploadRange(galinfo[gal].uesrow, 1);
         if (result) {
             return result;
         }
         // write command
         if (doWrite) {
-            sprintf(cmd, "W %02hhX %02hhX %02hhX\r", (uint8_t)mem_type_ues, (uint8_t)galinfo[gal].uesrow, (uint8_t)1);
-            result = sendGenericCommand(cmd, "write failed ?", 4000, 0);
+            //sprintf(cmd, "W %02hhX %02hhX %02hhX\r", (uint8_t)mem_type_ues, (uint8_t)galinfo[gal].uesrow, (uint8_t)1);
+            sprintf(cmd, "W %02hhX %02hhX %02hhX\r",
+                    (uint8_t)mem_type_ues,
+                    (uint8_t)(galinfo[gal].uesfuse - (galinfo[gal].uesrow * galinfo[gal].bits)),
+                    (uint8_t)(galinfo[gal].uesbytes * 8));            result = sendGenericCommand(cmd, "write failed ?", 4000, 0);
             if (result) {
                 goto finish;
             }
         }
         // verify command
         if (opVerify) {
-            sprintf(cmd, "V %02hhX %02hhX %02hhX\r", (uint8_t)mem_type_ues, (uint8_t)galinfo[gal].uesrow, (uint8_t)1);
+            //sprintf(cmd, "V %02hhX %02hhX %02hhX\r", (uint8_t)mem_type_ues, (uint8_t)galinfo[gal].uesrow, (uint8_t)1);
+            sprintf(cmd, "V %02hhX %02hhX %02hhX\r",
+                    (uint8_t)mem_type_ues,
+                    (uint8_t)(galinfo[gal].uesfuse - (galinfo[gal].uesrow * galinfo[gal].bits)),
+                    (uint8_t)(galinfo[gal].uesbytes * 8));
             result = sendGenericCommand(cmd, "verify failed ?", 4000, 0);
         }
 
-        result = uploadRange(galinfo[gal].cfgrow, 1);
-        if (result) {
-            return result;
-        }
+        // CFG
+        // the config bits are in the same row as UES and this is already in the buffer
         // write command
         if (doWrite) {
-            sprintf(cmd, "W %02hhX %02hhX %02hhX\r", (uint8_t)mem_type_cfg, (uint8_t)galinfo[gal].cfgrow, (uint8_t)1);
+            //sprintf(cmd, "W %02hhX %02hhX %02hhX\r", (uint8_t)mem_type_cfg, (uint8_t)galinfo[gal].cfgrow, (uint8_t)1);
+            sprintf(cmd, "W %02hhX %02hhX %02hhX\r",
+                    (uint8_t)mem_type_cfg,
+                    (uint8_t)(galinfo[gal].cfgbase - (galinfo[gal].cfgrow * galinfo[gal].bits)),
+                    (uint8_t)(galinfo[gal].cfgbits));
             result = sendGenericCommand(cmd, "write failed ?", 4000, 0);
             if (result) {
                 goto finish;
@@ -1061,7 +1087,11 @@ static char operationWriteOrVerify(char doWrite) {
         }
         // verify command
         if (opVerify) {
-            sprintf(cmd, "V %02hhX %02hhX %02hhX\r", (uint8_t)mem_type_cfg, (uint8_t)galinfo[gal].cfgrow, (uint8_t)1);
+            //sprintf(cmd, "V %02hhX %02hhX %02hhX\r", (uint8_t)mem_type_cfg, (uint8_t)galinfo[gal].cfgrow, (uint8_t)1);
+            sprintf(cmd, "V %02hhX %02hhX %02hhX\r",
+                    (uint8_t)mem_type_cfg,
+                    (uint8_t)(galinfo[gal].cfgbase - (galinfo[gal].cfgrow * galinfo[gal].bits)),
+                    (uint8_t)(galinfo[gal].cfgbits));
             result = sendGenericCommand(cmd, "verify failed ?", 4000, 0);
         }
     }
@@ -1086,6 +1116,11 @@ static char operationWriteOrVerify(char doWrite) {
     }
 
 finish:
+    // re-enable type check
+    if(!doTypeCheck) {
+        sendGenericCommand("f\r", "ignore: enable typeCheck failed ?", 0, 0);
+    }
+
     closeSerial();
     return result;
 }

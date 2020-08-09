@@ -1499,7 +1499,7 @@ static void writeGalFuseMapV750CRange(const unsigned char* cfgArray, char fillUe
       sendBits(galinfo[gal].bits - (8 * galinfo[gal].uesbytes), 1);
     }
     for (bit = 0; bit < (8 * galinfo[gal].uesbytes); bit++) {
-      addr = bit;
+      addr = rangeStartRow + bit;
       sendBit(getFuseBit(addr));
     }
     if (!fillUesStart) {
@@ -1515,10 +1515,10 @@ static void writeGalFuseMapV750CRange(const unsigned char* cfgArray, char fillUe
     // write CFG
     setRow(galinfo[gal].cfgrow);
     for(bit = 0; bit < galinfo[gal].cfgbits - useSdin; bit++) {
-      sendBit(getFuseBit(cfgArray[bit]));
+      sendBit(getFuseBit(rangeStartRow + cfgArray[bit]));
     }
     if (useSdin) {
-      setSDIN(getFuseBit(cfgArray[galinfo[gal].cfgbits - 1])); // last config bit is power down bit
+      setSDIN(getFuseBit(rangeStartRow + cfgArray[galinfo[gal].cfgbits - 1])); // last config bit is power down bit
       // TODO: the logic is wrong, because that would need 20+1 bits for ATF22V10C, but the array only contains 20 values
       // maybe:     setSDIN(getFuseBit(cfgAddr + cfgArray[20]));, but then array must be longer
     }
@@ -2030,7 +2030,10 @@ void loop() {
       case COMMAND_WRITE_FUSES_RANGE : {
         parseRangeOptions();
         if (mapUploaded) {
-          writeGal();
+          if (doTypeCheck()) {
+            writeGal();
+            //TODO security
+          }
         } else {
           printNoFusesError();
         }
