@@ -596,9 +596,9 @@ void parseUploadLine() {
     //fusemap data with length prefix
     case 'F': {
       uint16_t addr = parse4dec(3);
-      uint8_t byteCount = parse2dec(8);
+      uint8_t byteCount = parse2hex(8);
       uint8_t pos = 11;
-      for(uint8_t i = 0; i < byteCount; i++, addr++, pos + =2) {
+      for(uint8_t i = 0; i < byteCount; i++, addr++, pos += 2) {
         uint8_t v = parse2hex(pos);
         if (v) {
           for (uint8_t j = 0; j < 8; j++) {
