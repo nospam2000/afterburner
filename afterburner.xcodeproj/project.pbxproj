@@ -23,7 +23,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		4C796B7024DEA91800284F01 /* afterburner.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 2; lastKnownFileType = sourcecode.c.c; path = afterburner.c; sourceTree = SOURCE_ROOT; tabWidth = 2; };
+		4C796B7024DEA91800284F01 /* afterburner.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 4; lastKnownFileType = sourcecode.c.c; path = afterburner.c; sourceTree = SOURCE_ROOT; tabWidth = 4; };
 		4C796B7224DEAC8A00284F01 /* afterburner.ino */ = {isa = PBXFileReference; explicitFileType = sourcecode.c; indentWidth = 2; name = afterburner.ino; path = Arduino/afterburner/afterburner.ino; sourceTree = SOURCE_ROOT; tabWidth = 2; };
 		4CC0769224DEA78100CDF96E /* afterburner */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = afterburner; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
