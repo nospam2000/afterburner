@@ -799,7 +799,6 @@ static int sendLine(char* buf, int bufSize, int maxDelay) {
 static char uploadRange(uint8_t rangeStartRow, uint8_t rangeRowCount) {
     char buf[MAX_LINE];
     char line[64];
-    uint16_t fusecount = rangeRowCount * galinfo[gal].bits;
 
     if (openSerial() != 0) {
         return -1;
@@ -871,9 +870,10 @@ static char uploadRange(uint8_t rangeStartRow, uint8_t rangeRowCount) {
     }
 
     //checksum
+    uint16_t fusecount = rangeRowCount * galinfo[gal].bits;
     uint16_t check = endCheckSumRange(&cs_a, &cs_c, &cs_e);
     if (verbose) {
-        printf("sending csum: %04X\n", check);
+        printf("sending csum: %04X, fusecount: %04x\n", check, fusecount);
     }
     sprintf(buf, "#C %04X %04X\r", check, fusecount);
     sendLine(buf, MAX_LINE, 300);
