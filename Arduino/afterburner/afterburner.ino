@@ -257,6 +257,7 @@ galinfo[]=
 //#define MAXFUSES 1813
 // TODO: this size will not fit in the memory of the Arduino RAM (variable fusemap would get too large)
 
+#define LINE_LEN (80)
 
 GALTYPE gal; //the gal device index pointing to galinfo
 //static short security = 0;
@@ -264,7 +265,7 @@ static short erasetime = 100, progtime = 100, vpp = 0;
 
 char echoEnabled;
 unsigned char pes[12];
-char line[64];
+char line[LINE_LEN];
 char programName[32];
 short lineIndex;
 char endOfLine;
@@ -458,7 +459,7 @@ char handleTerminalCommands() {
         Serial.print(c);
       }
     }
-    if (lineIndex >= 62) {
+    if (lineIndex >= (LINE_LEN - 2)) {
       lineIndex = 0;
       readGarbage();
       Serial.println();
@@ -592,6 +593,30 @@ void parseUploadLine() {
       }
     } break;
 
+    //fusemap data with length prefix
+    case 'F': {
+      uint16_t addr = parse4dec(3);
+      uint8_t byteCount = parse2dec(8);
+      uint8_t pos = 11;
+      for(uint8_t i = 0; i < byteCount; i++, addr++, pos + =2) {
+        uint8_t v = parse2hex(pos);
+        if (v) {
+          for (uint8_t j = 0; j < 8; j++) {
+            // if fuse bit is set -> then change the fusemap
+            if (v & (1 << j)) {
+              setFuseBit(addr);
+            }
+          }
+        }
+      }
+
+      //any fuse being set is considered as uploaded fuse map
+      mapUploaded = 1;
+
+      Serial.print(F("OK "));
+      Serial.println((short) addr, DEC);
+    } break;
+
     //fusemap data
     case 'f': {
       char i = 8;
@@ -600,7 +625,7 @@ void parseUploadLine() {
       short v;
       do {
         v = parse2hex(i);
-        if (v >= 0) {
+        if (v >= 0) { // TODO: how can this work? When there is a 00 in the normal data, it will stop here and ignore the rest of the line!
           for (j = 0; j < 8; j++) {
             // if fuse bit is set -> then change the fusemap
             if (v & (1 << j)) {
