@@ -467,8 +467,6 @@ char handleTerminalCommands() {
     } else {
       lineIndex++;
     }
-
-    if(!endOfLine) delay(20); // wait some time to receive the rest of a long line
   }
   if (endOfLine) {
     c = COMMAND_NONE;
@@ -593,11 +591,14 @@ void parseUploadLine() {
       }
     } break;
 
-    //fusemap data with length prefix
-    case 'F': {
+    //fusemap data
+    case 'f': {
       uint16_t addr = parse4dec(3);
-      uint8_t byteCount = parse2hex(8);
-      uint8_t pos = 11;
+      int16_t byteCount = strlen(line);
+      while(byteCount > 0 && (line[byteCount - 1] == '\r' || line[byteCount - 1] == '\n'))
+        byteCount--;
+      byteCount = (byteCount - 8) / 2;
+      uint8_t pos = 8;
       for(uint8_t i = 0; i < byteCount; i++, addr++, pos += 2) {
         uint8_t v = parse2hex(pos);
         if (v) {
@@ -614,34 +615,7 @@ void parseUploadLine() {
       mapUploaded = 1;
 
       Serial.print(F("OK "));
-      Serial.println((short) addr, DEC);
-    } break;
-
-    //fusemap data
-    case 'f': {
-      char i = 8;
-      char j;
-      unsigned short addr = parse4dec(3);
-      short v;
-      do {
-        v = parse2hex(i);
-        if (v >= 0) { // TODO: how can this work? When there is a 00 in the normal data, it will stop here and ignore the rest of the line!
-          for (j = 0; j < 8; j++) {
-            // if fuse bit is set -> then change the fusemap
-            if (v & (1 << j)) {
-              setFuseBit(addr);
-            }
-            addr++;
-          }
-          i += 2;
-        }
-      } while (v >= 0);
-
-      //any fuse being set is considered as uploaded fuse map
-      mapUploaded = 1;
-
-      Serial.print(F("OK "));
-      Serial.println((short) addr, DEC);
+      Serial.println(addr, DEC);
     } break;
 
     //checksum
@@ -1961,9 +1935,7 @@ static char doTypeCheck(void) {
 
 // Arduino main loop
 void loop() {
-
-
-    // read a command from serial terminal or COMMAND_NONE if nothing is received from serial
+    // read a command from serial terminal or COMMAND_NONE if nothing or incomplete cmd is received from serial
     char command = handleTerminalCommands();
 
     // any unexpected input when uploading fuse map terminates the upload process
