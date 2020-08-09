@@ -599,13 +599,13 @@ void parseUploadLine() {
         byteCount--;
       byteCount = (byteCount - 8) / 2;
       uint8_t pos = 8;
-      for(uint8_t i = 0; i < byteCount; i++, addr++, pos += 2) {
+      for(uint8_t i = 0; i < byteCount; i++, pos += 2, addr += 8) {
         uint8_t v = parse2hex(pos);
         if (v) {
           for (uint8_t j = 0; j < 8; j++) {
             // if fuse bit is set -> then change the fusemap
             if (v & (1 << j)) {
-              setFuseBit(addr);
+              setFuseBit(addr + j);
             }
           }
         }
@@ -622,13 +622,13 @@ void parseUploadLine() {
     case 'C': // has a second parameter: the number of fuses for the checksum calculation
     case 'c': {
       unsigned short val = parse4hex(3);
-      unsigned short cs = (line[1] == 'C') ? parse4hex(8) : checkSum(galinfo[gal].fuses);
-      if (cs == val) {
+      unsigned short calc_cs = (line[1] == 'C') ? checkSum(parse4hex(8)) : checkSum(galinfo[gal].fuses);
+      if (calc_cs == val) {
         Serial.println(F("OK checksum matches"));
       } else {
         uploadError = 1;
         Serial.print(F("ER checksum:"));
-        Serial.print(cs, HEX);
+        Serial.print(calc_cs, HEX);
         Serial.print(F(" expected:"));
         Serial.println(val, HEX);
       }
