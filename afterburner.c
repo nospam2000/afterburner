@@ -1194,7 +1194,7 @@ static uint16_t skipNewlines(char **pos) {
   return count;
 }
 
-static int readOneRange(char *buf, enum mem_type mem, uint8_t startRow, uint8_t rowCount, uint8_t rowLen) {
+static int readOneRange(char *buf, enum mem_type mem, uint8_t startRow, uint8_t rowCount, uint8_t rowLen, uint16_t startJedecFuseNum) {
     // for checksum calculation
     uint32_t cs_a;
     uint16_t cs_c, cs_e;
@@ -1219,7 +1219,13 @@ static int readOneRange(char *buf, enum mem_type mem, uint8_t startRow, uint8_t 
             }
             uint8_t bitVal = (hexval & (1 << (j & 0x07))) ? 0x01 : 0x00;
             updateCheckSumRange(&cs_a, &cs_c, &cs_e, bitVal);
-            uint16_t addr = galinfo[gal].rows * j + (startRow + i);
+            uint16_t addr = 0;
+            if(mem == mem_type_fuses) {
+                addr = galinfo[gal].rows * j + (startRow + i);
+            }
+            else {
+                addr = startJedecFuseNum + j;
+            }
             fusemap[addr] = bitVal;
         }
         if(skipNewlines(&pos) == 0)
@@ -1329,13 +1335,16 @@ static void printJedec() {
       }
     }
 
-    /* TODO: get pes data
+    /* TODO: add pes data
     printf("*N PES");
     for(i = 0; i < galinfo[gal].pesbytes; i++) {
         printf(" %02X", pes[i]);
     }
      */
     printf("*\nC%04X\n*", checkSum(galinfo[gal].fuses));
+    
+    // TODO: add file checksum
+    //printf("\003%04X\n", fileChecksum);
 }
 
 
@@ -1361,22 +1370,22 @@ static char operationReadFuses(void) {
     sendLine(buf, MAX_LINE, 1000);
 
     if(gal == ATF750C) {
-        const uint8_t rowBatchSize = 30; // limited by memory of ATMega328, currently 737 byte => 30
+        const uint8_t rowBatchSize = 30; // limited by memory of ATMega328, currently 737 byte => 30 rows
 
         // fuses
         for(uint8_t row = 0; row < galinfo[gal].rows; row += rowBatchSize)
         {
             uint8_t rowCount = min_int(galinfo[gal].rows - row, rowBatchSize);
-            if(!readOneRange(buf, mem_type_fuses, row, rowCount, galinfo[gal].bits))
+            if(!readOneRange(buf, mem_type_fuses, row, rowCount, galinfo[gal].bits, 0))
                 goto parseError;
         }
 
         // UES
-        if(!readOneRange(buf, mem_type_ues, (uint8_t)galinfo[gal].uesrow, 1, (uint8_t)(galinfo[gal].uesbytes * 8)))
+        if(!readOneRange(buf, mem_type_ues, (uint8_t)galinfo[gal].uesrow, 1, (uint8_t)(galinfo[gal].uesbytes * 8), galinfo[gal].uesfuse))
             goto parseError;
 
         // CFG
-        if(!readOneRange(buf, mem_type_cfg, (uint8_t)galinfo[gal].cfgrow, 1, (uint8_t)(galinfo[gal].cfgbits)))
+        if(!readOneRange(buf, mem_type_cfg, (uint8_t)galinfo[gal].cfgrow, 1, (uint8_t)(galinfo[gal].cfgbits), galinfo[gal].cfgbase))
             goto parseError;
 
         printJedec();
