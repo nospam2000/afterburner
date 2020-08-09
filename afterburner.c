@@ -748,6 +748,9 @@ static int waitForSerialPrompt(char* buf, int bufSize, int maxDelay) {
         if (maxDelay > 0) {
             usleep(3 * 1000);
             maxDelay -= 3;
+            if(maxDelay <= 0 && verbose) {
+                printf("waitForSerialPrompt timed out\n");
+            }
         }
     }
     return bufPos;
@@ -794,10 +797,8 @@ static int sendLine(char* buf, int bufSize, int maxDelay) {
 // Upload fusemap in byte format (as opposed to bit format used in JEDEC file).
 // the columns/rows are already matrix transposed in the way the programmer needs it
 static char uploadRange(uint8_t rangeStartRow, uint8_t rangeRowCount) {
-    char fuseSet;
     char buf[MAX_LINE];
     char line[64];
-    unsigned int j, n;
     uint16_t fusecount = rangeRowCount * galinfo[gal].bits;
 
     if (openSerial() != 0) {
@@ -806,11 +807,11 @@ static char uploadRange(uint8_t rangeStartRow, uint8_t rangeRowCount) {
 
     // Start  upload
     sprintf(buf, "u\r");
-    sendLine(buf, MAX_LINE, 20);
+    sendLine(buf, MAX_LINE, 1000);
 
     //device type
     sprintf(buf, "#t %i %s\r", (int) gal, galinfo[gal].name);
-    sendLine(buf, MAX_LINE, 300);
+    sendLine(buf, MAX_LINE, 1000);
 
     //fuse map
     buf[0] = 0;
@@ -820,53 +821,53 @@ static char uploadRange(uint8_t rangeStartRow, uint8_t rangeRowCount) {
     uint16_t cs_c, cs_e;
     beginCheckSumRange(&cs_a, &cs_c, &cs_e);
 
-    fuseSet = 0;
+    uint8_t fuseSet = 0;
     uint16_t i = 0;
     uint8_t f = 0;
     for(uint8_t row = rangeStartRow; row < (rangeStartRow + rangeRowCount); row++) {
         for (uint8_t col = 0; col < galinfo[gal].bits; col++, i++) {
             if (i % (32*8) == 0) {
-                if (i != 0) {
-                    strcat(buf, "\r");
-                    //the buffer contains at least one fuse set to 1
-                    if (fuseSet) {
-    #ifdef DEBUG_UPLOAD
-                        printf("%s\n", buf);
-    #endif
-                        sendLine(buf, MAX_LINE, 100);
-                    }
-                    fuseSet = 0;
-                }
-                sprintf(buf, "#f %04i ", i);
+                sprintf(buf, "#f %04u ", i);
             }
+            
             uint16_t addr = galinfo[gal].rows * col + row;
             uint8_t bitVal = (addr < galinfo[gal].fuses) && fusemap[addr];
+            updateCheckSumRange(&cs_a, &cs_c, &cs_e, bitVal);
             if (bitVal) {
                 f |= (1 << (i & 0x07));
                 fuseSet = 1;
             }
-            updateCheckSumRange(&cs_a, &cs_c, &cs_e, bitVal);
 
-            if ((i > 0) && ((i % 8) == 0)) {
+            if ((((i + 1) % 8) == 0)) {
                 sprintf(line, "%02X", f);
                 strcat(buf, line);
                 f = 0;
+
+                if ((i + 1) % (32*8) == 0) {
+                    strcat(buf, "\r");
+                    //the buffer contains at least one fuse set to 1
+                    if (fuseSet) {
+        #ifdef DEBUG_UPLOAD
+                        printf("%s\n", buf);
+        #endif
+                        sendLine(buf, MAX_LINE, 1000);
+                        fuseSet = 0;
+                    }
+                }
             }
         }
     }
 
     // send last unfinished f, and fuse line 
-    if (f) {
+    if (fuseSet) {
         sprintf(line, "%02X", f);
         strcat(buf, line);
-    }
-
-    if (i % (32*8) && fuseSet) {
         strcat(buf, "\r");
+
 #ifdef DEBUG_UPLOAD
         printf("%s\n", buf);
 #endif
-        sendLine(buf, MAX_LINE, 100);
+        sendLine(buf, MAX_LINE, 1000);
     }
 
     //checksum
@@ -1002,7 +1003,7 @@ static char operationWriteOrVerify(char doWrite) {
     }
 
     if(gal == ATF750C) {
-        const uint8_t rowBatchSize = 20;
+        const uint8_t rowBatchSize = 30;
         char cmd[64 + 1];
         for(uint8_t row = 0; row < galinfo[gal].rows; row += rowBatchSize)
         {
