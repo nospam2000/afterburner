@@ -43,7 +43,7 @@
 #define VERSION "0.4"
 
 //#define DEBUG_PES
-//#define DEBUG_VERIFY
+#define DEBUG_VERIFY
 
 //ARDUINO UNO pin mapping
 //    GAL PIN NAME | ARDUINO UNO PIN NUMBER
@@ -180,6 +180,37 @@ static const unsigned char cfgV10[]=
 static const unsigned char cfgV750[]=
 {
     // TODO: order is not clear
+#if 1
+   34, 33, 32, 31,     2,  1,  0, // 0  S6..S0
+   //38, 37, 36, 35,     5,  4,  3, // 7
+   3, 4, 5, 35, 36, 37, 38,            // S0..S6
+   //42, 41, 40, 39,     8,  7,  6, // 14
+   39, 40, 41, 42,    6, 7, 8,         // S3..S6, S0..S2
+   //46, 45, 44, 43,    11, 10,  9, // 21
+   11, 10, 9, 46, 45, 44, 43,         // S2..S0, S6..S3
+   50, 49, 48, 47,    14, 13, 12, // 28
+   54, 53, 52, 51,    17, 16, 15, // 35
+   58, 57, 56, 55,    20, 19, 18, // 42
+   62, 61, 60, 59,    23, 22, 21, // 49
+   66, 65, 64, 63,    26, 25, 24, // 56
+   70, 69, 68, 67,    29, 28, 27, // 63
+#endif
+
+
+#if 0
+   34, 33, 32, 31,     2,  1,  0, // 0 
+   38, 37, 36, 35,     5,  4,  3, // 7
+   42, 41, 40, 39,     8,  7,  6, // 14
+   46, 45, 44, 43,    11, 10,  9, // 21
+   50, 49, 48, 47,    14, 13, 12, // 28
+   54, 53, 52, 51,    17, 16, 15, // 35
+   58, 57, 56, 55,    20, 19, 18, // 42
+   62, 61, 60, 59,    23, 22, 21, // 49
+   66, 65, 64, 63,    26, 25, 24, // 56
+   70, 69, 68, 67,    29, 28, 27, // 63
+#endif
+
+#if 0
       2,  1,  0,   34, 33, 32, 31, // 0 offset
       5,  4,  3,   38, 37, 36, 35, // 7
       8,  7,  6,   42, 41, 40, 39, // 14
@@ -190,6 +221,31 @@ static const unsigned char cfgV750[]=
      23, 22, 21,   62, 61, 60, 59, // 49
      26, 25, 24,   66, 65, 64, 63, // 56
      29, 28, 27,   70, 69, 68, 67, // 63
+#endif
+
+#if 0
+      2,  1,  0,
+      5,  4,  3,
+      8,  7,  6,
+     11, 10,  9,
+     14, 13, 12,
+     17, 16, 15,
+     20, 19, 18,
+     23, 22, 21,
+     26, 25, 24,
+     29, 28, 27,
+
+   34, 33, 32, 31, // 0 
+   38, 37, 36, 35, // 7
+   42, 41, 40, 39, // 14
+   46, 45, 44, 43, // 21
+   50, 49, 48, 47, // 28
+   54, 53, 52, 51, // 35
+   58, 57, 56, 55, // 42
+   62, 61, 60, 59, // 49
+   66, 65, 64, 63, // 56
+   70, 69, 68, 67, // 63
+#endif
 
     // TODO: unclear how to handle those:
     30,  // 75: Security?
@@ -1069,7 +1125,7 @@ static void readGalFuseMapRange(const unsigned char* cfgArray, char useDelay, ch
     }
     for(bit = 0; bit < 64; bit++) {
       if (receiveBit()) {
-        addr = bit;
+        addr = rangeStartRow + bit;
         setFuseBit(addr);
       }
     }
@@ -1088,7 +1144,7 @@ static void readGalFuseMapRange(const unsigned char* cfgArray, char useDelay, ch
     }
     for(bit = 0; bit < galinfo[gal].cfgbits; bit++) {
       if (receiveBit()) {
-        setFuseBit(cfgArray[bit]);
+        setFuseBit(rangeStartRow + cfgArray[bit]);
       }
     }
   }
@@ -1166,7 +1222,12 @@ static unsigned short verifyGalFuseMapRange(const unsigned char* cfgArray, char 
         if (mapBit != fuseBit) {
   #ifdef DEBUG_VERIFY
           Serial.print(F("f a="));
-          Serial.println((row * galinfo[gal].bits) + bit, DEC);
+          Serial.print(bit, DEC);
+          Serial.print(F(" "));
+          Serial.print(addr, DEC);
+          Serial.print(F(" "));
+          Serial.print(mapBit, DEC);
+          Serial.println(fuseBit, DEC);
   #endif
           errors++;
         }
@@ -1184,13 +1245,18 @@ static unsigned short verifyGalFuseMapRange(const unsigned char* cfgArray, char 
       discardBits(doDiscardBits);
     }
     for(bit = 0; bit < 64; bit++) {
-      addr = bit;
+      addr = rangeStartRow + bit;
       mapBit = getFuseBit(addr);
       fuseBit = receiveBit();
       if (mapBit != fuseBit) {
   #ifdef DEBUG_VERIFY
         Serial.print(F("U a="));
-        Serial.println(bit, DEC);
+        Serial.print(bit, DEC);
+        Serial.print(F(" "));
+        Serial.print(addr, DEC);
+        Serial.print(F(" "));
+        Serial.print(mapBit, DEC);
+        Serial.println(fuseBit, DEC);
   #endif
         errors++;
       }
@@ -1209,12 +1275,18 @@ static unsigned short verifyGalFuseMapRange(const unsigned char* cfgArray, char 
       strobe(1);
     }
     for(bit = 0; bit < galinfo[gal].cfgbits; bit++) {
-      mapBit = getFuseBit(cfgArray[bit]); 
+      uint16_t addr = rangeStartRow + cfgArray[bit];
+      mapBit = getFuseBit(addr); 
       fuseBit = receiveBit();
       if (mapBit != fuseBit) {
   #ifdef DEBUG_VERIFY
         Serial.print(F("C a="));
-        Serial.println(bit, DEC);
+        Serial.print(bit, DEC);
+        Serial.print(F(" "));
+        Serial.print(addr, DEC);
+        Serial.print(F(" "));
+        Serial.print(mapBit, DEC);
+        Serial.println(fuseBit, DEC);
   #endif
         errors++;
       }
@@ -1246,7 +1318,12 @@ static unsigned short verifyGalFuseMap(const unsigned char* cfgArray, char useDe
       if (mapBit != fuseBit) {
 #ifdef DEBUG_VERIFY
         Serial.print(F("f a="));
-        Serial.println((row * galinfo[gal].bits) + bit, DEC);
+        Serial.print(bit, DEC);
+        Serial.print(F(" "));
+        Serial.print(addr, DEC);
+        Serial.print(F(" "));
+        Serial.print(mapBit, DEC);
+        Serial.println(fuseBit, DEC);
 #endif
         errors++;
       }
@@ -1269,7 +1346,12 @@ static unsigned short verifyGalFuseMap(const unsigned char* cfgArray, char useDe
     if (mapBit != fuseBit) {
 #ifdef DEBUG_VERIFY
       Serial.print(F("U a="));
-      Serial.println(bit, DEC);
+      Serial.print(bit, DEC);
+      Serial.print(F(" "));
+      Serial.print(addr, DEC);
+      Serial.print(F(" "));
+      Serial.print(mapBit, DEC);
+      Serial.println(fuseBit, DEC);
 #endif
       errors++;
     }
@@ -1286,12 +1368,18 @@ static unsigned short verifyGalFuseMap(const unsigned char* cfgArray, char useDe
     strobe(1);
   }
   for(bit = 0; bit < galinfo[gal].cfgbits; bit++) {
-    mapBit = getFuseBit(cfgAddr + cfgArray[bit]); 
+    uint16_t addr = cfgAddr + cfgArray[bit];
+    mapBit = getFuseBit(addr); 
     fuseBit = receiveBit();
     if (mapBit != fuseBit) {
 #ifdef DEBUG_VERIFY
       Serial.print(F("C a="));
-      Serial.println(bit, DEC);
+      Serial.print(bit, DEC);
+      Serial.print(F(" "));
+      Serial.print(addr, DEC);
+      Serial.print(F(" "));
+      Serial.print(mapBit, DEC);
+      Serial.println(fuseBit, DEC);
 #endif
       errors++;
     }
@@ -1968,8 +2056,11 @@ void loop() {
 
       // verify fuse-map bits and bits read from the GAL chip
       case COMMAND_VERIFY_FUSES_RANGE: {
+        parseRangeOptions();
         if (mapUploaded) {
-          readOrVerifyGal(1); //just verify, do not overwrite fusemap
+          if (doTypeCheck()) {
+            readOrVerifyGal(1); //just verify, do not overwrite fusemap
+          }
         } else {
           printNoFusesError();
         }
@@ -2014,8 +2105,10 @@ void loop() {
 
       case COMMAND_READ_FUSES_RANGE : {
         parseRangeOptions();
-        readOrVerifyGal(0); //just read, no verification
-        printJedecRange();
+        if (doTypeCheck()) {
+          readOrVerifyGal(0); //just read, no verification
+          printJedecRange();
+        }
       } break;
 
       // read fuse-map from the GAL and print it in the JEDEC form
