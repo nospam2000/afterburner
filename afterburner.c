@@ -42,6 +42,7 @@ This is the PC part that communicates with Arduino UNO by serial line.
 To compile: gcc -g3 -O0 afterburner afterburner.c
 */
 
+#define DEBUG_UPLOAD 1
 
 #include <unistd.h>
 #include <stdlib.h>
@@ -54,7 +55,7 @@ To compile: gcc -g3 -O0 afterburner afterburner.c
 #define VERSION "v.0.3"
 
 
-#define MAX_LINE 200
+#define MAX_LINE 8192
 
 #define MAXFUSES 16384
 #define GALBUFSIZE 32768 // can even lengthly test vectors
@@ -795,8 +796,8 @@ static int sendLine(char* buf, int bufSize, int maxDelay) {
 
 
 // Upload fusemap in byte format (as opposed to bit format used in JEDEC file).
-// the columns/rows are already matrix transposed in the way the programmer needs it
-static char uploadRange(uint8_t rangeStartRow, uint8_t rangeRowCount) {
+// the columns/rows for mem_type==fuses are already matrix transposed in the way the programmer needs it
+static char uploadRange(uint8_t rangeStartRow, uint8_t rangeRowCount, enum mem_type mem_type) {
     char buf[MAX_LINE];
     char line[64];
 
@@ -823,13 +824,16 @@ static char uploadRange(uint8_t rangeStartRow, uint8_t rangeRowCount) {
     uint8_t fuseSet = 0;
     uint16_t i = 0;
     uint8_t f = 0;
+    uint16_t addr = 0;
     for(uint8_t row = rangeStartRow; row < (rangeStartRow + rangeRowCount); row++) {
         for (uint8_t col = 0; col < galinfo[gal].bits; col++, i++) {
             if (i % (32*8) == 0) {
                 sprintf(buf, "#f %04u ", i);
             }
-            
-            uint16_t addr = galinfo[gal].rows * col + row;
+            if(mem_type == mem_type_fuses)
+                addr = galinfo[gal].rows * col + row;
+            else
+                addr = galinfo[gal].bits * row + col;
             uint8_t bitVal = (addr < galinfo[gal].fuses) && fusemap[addr];
             updateCheckSumRange(&cs_a, &cs_c, &cs_e, bitVal);
             if (bitVal) {
@@ -1015,7 +1019,7 @@ static char operationWriteOrVerify(char doWrite) {
         for(uint8_t row = 0; row < galinfo[gal].rows; row += rowBatchSize)
         {
             uint8_t rowCount = min_int(galinfo[gal].rows - row, rowBatchSize);
-            result = uploadRange(row, rowCount);
+            result = uploadRange(row, rowCount, mem_type_fuses);
             if (result) {
                 return result;
             }
@@ -1036,7 +1040,7 @@ static char operationWriteOrVerify(char doWrite) {
             }
 
             // verify command
-            if (opVerify) {
+            if (doWrite || opVerify) {
                 sprintf(cmd, "V %02hhX %02hhX %02hhX\r", (uint8_t)mem_type_fuses, row, rowCount);
                 result = sendGenericCommand("V\r", "verify failed ?", 4000, 0);
                 if (result) {
@@ -1046,7 +1050,7 @@ static char operationWriteOrVerify(char doWrite) {
         }
 
         // UES
-        result = uploadRange(galinfo[gal].uesrow, 1);
+        result = uploadRange(galinfo[gal].uesrow, 1, mem_type_ues);
         if (result) {
             return result;
         }
@@ -1056,13 +1060,14 @@ static char operationWriteOrVerify(char doWrite) {
             sprintf(cmd, "W %02hhX %02hhX %02hhX\r",
                     (uint8_t)mem_type_ues,
                     (uint8_t)(galinfo[gal].uesfuse - (galinfo[gal].uesrow * galinfo[gal].bits)),
-                    (uint8_t)(galinfo[gal].uesbytes * 8));            result = sendGenericCommand(cmd, "write failed ?", 4000, 0);
+                    (uint8_t)(galinfo[gal].uesbytes * 8));
+            result = sendGenericCommand(cmd, "write failed ?", 4000, 0);
             if (result) {
                 goto finish;
             }
         }
         // verify command
-        if (opVerify) {
+        if (doWrite || opVerify) {
             //sprintf(cmd, "V %02hhX %02hhX %02hhX\r", (uint8_t)mem_type_ues, (uint8_t)galinfo[gal].uesrow, (uint8_t)1);
             sprintf(cmd, "V %02hhX %02hhX %02hhX\r",
                     (uint8_t)mem_type_ues,
@@ -1072,7 +1077,13 @@ static char operationWriteOrVerify(char doWrite) {
         }
 
         // CFG
-        // the config bits are in the same row as UES and this is already in the buffer
+        uint16_t cfgrow = galinfo[gal].cfgbase / galinfo[gal].bits;
+        uint16_t cfgrowLast = (galinfo[gal].cfgbase + galinfo[gal].cfgbits + (galinfo[gal].bits - 1)) / galinfo[gal].bits;
+        uint16_t cfgrowCount = cfgrowLast - cfgrow + 1;
+        result = uploadRange(cfgrow, cfgrowCount, mem_type_cfg);
+        if (result) {
+            return result;
+        }
         // write command
         if (doWrite) {
             //sprintf(cmd, "W %02hhX %02hhX %02hhX\r", (uint8_t)mem_type_cfg, (uint8_t)galinfo[gal].cfgrow, (uint8_t)1);
@@ -1086,7 +1097,7 @@ static char operationWriteOrVerify(char doWrite) {
             }
         }
         // verify command
-        if (opVerify) {
+        if (doWrite || opVerify) {
             //sprintf(cmd, "V %02hhX %02hhX %02hhX\r", (uint8_t)mem_type_cfg, (uint8_t)galinfo[gal].cfgrow, (uint8_t)1);
             sprintf(cmd, "V %02hhX %02hhX %02hhX\r",
                     (uint8_t)mem_type_cfg,
