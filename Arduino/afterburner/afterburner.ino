@@ -180,7 +180,8 @@ static const unsigned char cfgV10[]=
 static const unsigned char cfgV750[]=
 {
     // TODO: order is not clear
-#if 1
+#if 0
+//not working 2020-08-12 13:09
    34, 33, 32, 31,     2,  1,  0, // 0  S6..S0
    //38, 37, 36, 35,     5,  4,  3, // 7
    3, 4, 5, 35, 36, 37, 38,            // S0..S6
@@ -194,10 +195,27 @@ static const unsigned char cfgV750[]=
    62, 61, 60, 59,    23, 22, 21, // 49
    66, 65, 64, 63,    26, 25, 24, // 56
    70, 69, 68, 67,    29, 28, 27, // 63
+   30,  // 75: Security?
 #endif
 
-
 #if 0
+//not working 2020-08-12 13:09
+   34, 33, 32, 31,     2,  1,  0, // 0 
+   38, 37, 36, 35,     5,  4,  3, // 7
+   42, 41, 40, 39,     8,  7,  6, // 14
+   46, 45, 44, 43,    11, 10,  9, // 21
+   50, 49, 48, 47,    14, 13, 12, // 28
+   54, 53, 52, 51,    17, 16, 15, // 35
+   58, 57, 56, 55,    20, 19, 18, // 42
+   62, 61, 60, 59,    23, 22, 21, // 49
+   66, 65, 64, 63,    26, 25, 24, // 56
+   70, 69, 68, 67,    29, 28, 27, // 63
+   30,  // 75: Security?
+#endif
+
+#if 1
+//not working 2020-08-13 13:09
+   30,  // 75: Security?
    34, 33, 32, 31,     2,  1,  0, // 0 
    38, 37, 36, 35,     5,  4,  3, // 7
    42, 41, 40, 39,     8,  7,  6, // 14
@@ -211,6 +229,7 @@ static const unsigned char cfgV750[]=
 #endif
 
 #if 0
+//not working 2020-08-12 13:09
       2,  1,  0,   34, 33, 32, 31, // 0 offset
       5,  4,  3,   38, 37, 36, 35, // 7
       8,  7,  6,   42, 41, 40, 39, // 14
@@ -221,9 +240,11 @@ static const unsigned char cfgV750[]=
      23, 22, 21,   62, 61, 60, 59, // 49
      26, 25, 24,   66, 65, 64, 63, // 56
      29, 28, 27,   70, 69, 68, 67, // 63
+     30,  // 75: Security?
 #endif
 
 #if 0
+//not working 2020-08-12 13:09
       2,  1,  0,
       5,  4,  3,
       8,  7,  6,
@@ -245,17 +266,45 @@ static const unsigned char cfgV750[]=
    62, 61, 60, 59, // 49
    66, 65, 64, 63, // 56
    70, 69, 68, 67, // 63
+   30,  // 75: Security?
+#endif
+
+#if 0
+//not working 2020-08-12 13:09
+      2,  1,  0,
+      5,  4,  3,
+      8,  7,  6,
+     11, 10,  9,
+     14, 13, 12,
+     17, 16, 15,
+     20, 19, 18,
+     23, 22, 21,
+     26, 25, 24,
+     29, 28, 27,
+
+   30,  // 75: Security?
+
+   34, 33, 32, 31, // 0 
+   38, 37, 36, 35, // 7
+   42, 41, 40, 39, // 14
+   46, 45, 44, 43, // 21
+   50, 49, 48, 47, // 28
+   54, 53, 52, 51, // 35
+   58, 57, 56, 55, // 42
+   62, 61, 60, 59, // 49
+   66, 65, 64, 63, // 56
+   70, 69, 68, 67, // 63
 #endif
 
     // TODO: unclear how to handle those:
+    /*
     30,  // 75: Security?
-/*
     135, // 70: Powerdown
     136, // 71: PinKeeper
     137, // 72: unknown
     138, // 73: unknown
     139, // 74: unknown
-*/
+    */
 };
 
 
@@ -299,7 +348,7 @@ galinfo[]=
     {ATF16V8B,  0x00, 0x00, "ATF16V8B", 2194, 20, 32,  64, 32, 2056, 8, 63, 54, 58,  8, 60, CFG_BASE_16, cfgV8AB, sizeof(cfgV8AB), CFG_STROBE_ROW},
     {ATF22V10B, 0x00, 0x00, "ATF22V10B",5892, 24, 44, 132, 44, 5828, 8, 61, 60, 58, 10, 16, CFG_BASE_22, cfgV10,  sizeof(cfgV10) , CFG_SET_ROW   },
     {ATF22V10C, 0x00, 0x00, "ATF22V10C",5892, 24, 44, 132, 44, 5828, 8, 61, 60, 58, 10, 16, CFG_BASE_22, cfgV10,  sizeof(cfgV10) , CFG_SET_ROW   },
-    {ATF750C,   0x00, 0x00, "ATF750C", 14499, 24, 84, 171, 84,14435, 8, 61, 60,127, 12, 16, CFG_BASE_750,cfgV750, sizeof(cfgV750), CFG_SET_ROW   }, // TODO: not all numbers are clear
+    {ATF750C,   0x00, 0x00, "ATF750C", 14499, 24, 84, 171, 84,14435, 8, 61, 60,127, 10, 16, CFG_BASE_750,cfgV750, sizeof(cfgV750), CFG_SET_ROW   }, // TODO: not all numbers are clear
 };
 
 // MAXFUSES calculated as the biggest required space to hold the fuse bitmap + UES bitmap + CFG bitmap
@@ -410,6 +459,9 @@ void testRead() {
     uint8_t v = receiveBit();
     Serial.write(v ? '1' : '0');
   }
+  if (useDelay) {
+    delay(useDelay);
+  }
   Serial.println();
 
   for(uint8_t i = 0; i < 64; i++) {
@@ -426,6 +478,9 @@ void testRead() {
     for(bit = 0; bit < 171; bit++) {
       uint8_t v = receiveBit();
       Serial.write(v ? '1' : '0');
+    }
+    if (useDelay) {
+      delay(useDelay);
     }
     Serial.println();
   }
@@ -839,21 +894,30 @@ static void sendBits(short n, char bitValue)
 // ATF22V10C/ATF750C MSb first, other 22V10 LSb first
 static void sendAddress(unsigned char n, unsigned char row)
 {
+  uint8_t mask = 1 << (n - 1);
+ 
   switch (gal) {
   case ATF22V10C:
       while (n-- > 1) {
-          sendBit(row & 32);   // clock in row number bits 5-1
+          sendBit(row & mask);   // clock in row number bits 5-1
           row <<= 1;
       }
-      setSDIN(row & 32);       // SDIN = row number bit 0
+      setSDIN(row & mask);       // SDIN = row number bit 0
       break;
+
   case ATF750C:
-      while (n-- > 1) {
-          sendBit(row & 64);   // clock in row number bits 6-1
+  		if(row & mask) { // only send highest bit when 1
+      	sendBit(row & mask);
+			}
+      row <<= 1;
+			
+      while (n-- > 2) {
+          sendBit(row & mask);   // clock in row number bits 5-1
           row <<= 1;
       }
-      setSDIN(row & 64);       // SDIN = row number bit 0
+      setSDIN(row & mask);       // SDIN = row number bit 0
       break;
+  
   default:
       while (n-- > 0) {
           sendBit(row & 1);    // clock in row number bits 0-5
@@ -1606,9 +1670,7 @@ static void writeGalFuseMapV750CRange(const unsigned char* cfgArray, char fillUe
       sendBit(getFuseBit(rangeStartRow + cfgArray[bit]));
     }
     if (useSdin) {
-      setSDIN(getFuseBit(rangeStartRow + cfgArray[galinfo[gal].cfgbits - 1])); // last config bit is power down bit
-      // TODO: the logic is wrong, because that would need 20+1 bits for ATF22V10C, but the array only contains 20 values
-      // maybe:     setSDIN(getFuseBit(cfgAddr + cfgArray[20]));, but then array must be longer
+      setSDIN(getFuseBit(rangeStartRow + cfgArray[galinfo[gal].cfgbits - 1]));
     }
     setPV(1);
     strobe(progtime);
@@ -1617,7 +1679,7 @@ static void writeGalFuseMapV750CRange(const unsigned char* cfgArray, char fillUe
     if (useSdin) {
       // disable power-down feature (JEDEC bit #5892)
       setRow(0);
-      sendAddress(7, 86); // TODO: check if constant 86 is correct
+      sendAddress(7, galinfo[gal].uesrow + 1); // TODO: check if row is correct
       setPV(1);
       strobe(progtime);
       setPV(0);
@@ -1691,6 +1753,10 @@ static char checkGalTypeViaPes(void)
       Serial.print(F(" "));
     }
     Serial.println();
+    for (i = 0; i < 10; i++) {
+      Serial.write(pes[i]);
+    }
+    Serial.println();
 #endif
 
     if (pes[7] == 'F' && pes[6]== '2' && pes[5]== '2' && pes[4]== 'V' && pes[3]== '1' && pes[2]=='0') {
@@ -1701,8 +1767,6 @@ static char checkGalTypeViaPes(void)
        }
     }
     else if (pes[8] == 'F' && pes[7] == 'V' && pes[6] == '7' && pes[5] == '5' && pes[4] == '0' && pes[3] =='C') {
-      // && (pes[11] == '0' && pes[10] == '0' && pes[9] == '1'
-      // && pes[2] == '0' && pes[1] == '0' && pes[0] == '3'
       // complete string at beginning of row 127: "300C057VF100"
       type = ATF750C;
     }
@@ -1736,7 +1800,10 @@ static char testProperGAL(void)
     return 1;
 
 error:
-    Serial.println(F("ER unknown or wrong GAL type (check Power ON)"));
+    Serial.print(F("ER unknown or wrong GAL type (check Power ON), "));
+    Serial.print(type, DEC);
+    Serial.print(F("!="));
+    Serial.println(gal, DEC);
     return 0;
 }
 
