@@ -906,13 +906,14 @@ static void sendAddress(unsigned char n, unsigned char row)
       break;
 
   case ATF750C:
-  		if(row & mask) { // only send highest bit when 1
+  		if(row & mask) { // only send highest bit n when 1
       	sendBit(row & mask);
 			}
       row <<= 1;
+      n--;
 			
-      while (n-- > 2) {
-          sendBit(row & mask);   // clock in row number bits 5-1
+      while (n-- > 1) {
+          sendBit(row & mask);   // clock in row number bits n-1 to 1
           row <<= 1;
       }
       setSDIN(row & mask);       // SDIN = row number bit 0
