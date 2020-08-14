@@ -37,6 +37,8 @@ Changelog:
              - fixed error detection
              - 'i' command now requires GAL type to be passed
                on the command line
+* 2020-07-31 - version 0.4
+             - added support for ATF750C
 
 This is the PC part that communicates with Arduino UNO by serial line.
 To compile: gcc -g3 -O0 afterburner afterburner.c
@@ -52,7 +54,7 @@ To compile: gcc -g3 -O0 afterburner afterburner.c
 
 #include "serial_port.h"
 
-#define VERSION "v.0.3"
+#define VERSION "v.0.4"
 
 
 #define MAX_LINE 8192
