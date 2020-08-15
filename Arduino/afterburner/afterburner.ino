@@ -390,11 +390,17 @@ static char checkGalTypeViaPes(void);
 static void turnOff(void);
 static void printFormatedNumberHex2(unsigned char num) ;
 
+// the number of bit of a row address
+static uint8_t getRowAddrWidth() {
+  if(galinfo[gal].rows > 64)
+    return 7;
+
+  return 6;
+}
+
 #define TEST750
 #ifdef TEST750
 void testRead() {
-  turnOn(READGAL);
-
   switch(gal)
   {
     case ATF22V10C:
@@ -416,6 +422,8 @@ void testRead() {
 
   //const uint8_t maxrow = galinfo[gal].rows - 1;
   const uint8_t maxrow = 127;
+  turnOn(READGAL);
+
   // read fuse rows
   for(row = 0; row <= maxrow; row++) {
     if(row < 10) Serial.write('0');
@@ -429,7 +437,7 @@ void testRead() {
     }
     Serial.println();
     if (useDelay) {
-      delay(useDelay);
+      delayPrecise(useDelay);
     }
   }
 
@@ -444,7 +452,7 @@ void testRead() {
     Serial.write(v ? '1' : '0');
   }
   if (useDelay) {
-    delay(useDelay);
+    delayPrecise(useDelay);
   }
 
   // read CFG
@@ -460,7 +468,7 @@ void testRead() {
     Serial.write(v ? '1' : '0');
   }
   if (useDelay) {
-    delay(useDelay);
+    delayPrecise(useDelay);
   }
   Serial.println();
 
@@ -480,7 +488,7 @@ void testRead() {
       Serial.write(v ? '1' : '0');
     }
     if (useDelay) {
-      delay(useDelay);
+      delayPrecise(useDelay);
     }
     Serial.println();
   }
@@ -770,7 +778,7 @@ static void setVPP(char on) {
   
   //Serial.print(F("VPP set to:"));
   //Serial.println( on ? "12V": "5V");
-  delay(10);
+  delayPrecise(10);
 }
 
 
@@ -811,13 +819,13 @@ static char getSDOUT(void)
 // GAL finish sequence
 static void turnOff(void)
 {
-    delay(100);
+    delayPrecise(100);
     setPV(0);    // P/V- low
     setRow(0x3F);// RA0-5 high  
     setSDIN(1);  // SDIN high
     setVPP(0);   // Vpp off (+12V)
     setPV(1);    // P/V- high
-    delay(2);
+    delayPrecise(2);
     setVCC(0);   // turn off VCC (if controlled)
 
     
@@ -843,17 +851,25 @@ static void turnOn(char mode) {
 
 //     setVPP(mode);
     setVPP(0);    // VPP off
+    delayMicroseconds(100);
     setPV(0);     // P/V- low
+    delayMicroseconds(100);
     setRow(0x3F); // RA0-5 high - erase sequence ?
+    delayMicroseconds(100);
     //setRow(0);    // RA0-5 low
+    //delayMicroseconds(100);
     setSDIN(1);   // SDIN high
+    delayMicroseconds(100);
     setSCLK(1);   // SCLK high
+    delayMicroseconds(100);
     setSTB(1);    // STB high
+    delayMicroseconds(100);
     setVCC(1);    // turn on VCC (if controlled)
-    delay(100);
+    delayPrecise(100);
     setSCLK(0);   // SCLK low
+    delayMicroseconds(100);
     setVPP(mode);
-    delay(20);
+    delayPrecise(20);
 }
 
 
@@ -862,7 +878,9 @@ static char receiveBit(void)
 {
     char b = getSDOUT();
     setSCLK(1);
+    delayMicroseconds(10);
     setSCLK(0);
+    delayMicroseconds(10);
     return b;
 }
 
@@ -878,8 +896,11 @@ static void discardBits(short n)
 static void sendBit(char bitValue)
 {
     setSDIN(bitValue);
+    delayMicroseconds(10);
     setSCLK(1);
+    delayMicroseconds(10);
     setSCLK(0);
+    delayMicroseconds(10);
 }
 
 // send n number of bits to GAL
@@ -892,49 +913,47 @@ static void sendBits(short n, char bitValue)
 
 // send row address bits to SDIN 
 // ATF22V10C/ATF750C MSb first, other 22V10 LSb first
-static void sendAddress(unsigned char n, unsigned char row)
+static void sendAddress(unsigned char row)
 {
-  uint8_t mask = 1 << (n - 1);
+  unsigned char n = getRowAddrWidth();
  
   switch (gal) {
   case ATF22V10C:
+  case ATF750C:
+      uint8_t mask = 1 << (n - 1);
       while (n-- > 1) {
           sendBit(row & mask);   // clock in row number bits 5-1
           row <<= 1;
       }
       setSDIN(row & mask);       // SDIN = row number bit 0
+      delayMicroseconds(10);
       break;
 
-  case ATF750C:
-  		if(row & mask) { // only send highest bit n when 1
-      	sendBit(row & mask);
-			}
-      row <<= 1;
-      n--;
-			
-      while (n-- > 1) {
-          sendBit(row & mask);   // clock in row number bits n-1 to 1
-          row <<= 1;
-      }
-      setSDIN(row & mask);       // SDIN = row number bit 0
-      break;
-  
   default:
       while (n-- > 0) {
           sendBit(row & 1);    // clock in row number bits 0-5
           row >>= 1;
       }
       setSDIN(0); // SDIN = low
+      delayMicroseconds(10);
   }
 }
 
+
+static void delayPrecise(uint16_t msec) {
+  if(msec < 16)
+    delayMicroseconds(msec * 1000L); // get a better precision: delay(1) can actually be a delay(0)
+  else
+    delay(msec);
+}
 
 // pulse STB pin low for some milliseconds 
 static void strobe(unsigned short msec)
 {
   setSTB(0);
-  delay(msec);
+  delayPrecise(msec);
   setSTB(1);
+  delayPrecise(msec);
 }
 
 // 16V8, 20V8 RA0-5 = row address, strobe.
@@ -951,18 +970,17 @@ static void strobeRow(char row)
     case GAL22V10:
     case ATF22V10B:
     case ATF22V10C:
-      setRow(0);           // set RA0-5 low
-      sendAddress(6,row);  // send row number (6 bits)
-      setSTB(0);
-      setSTB(1);           // pulse /STB
-      setSDIN(0);          // SDIN low
-      break;
     case ATF750C:
-      setRow(0);           // set RA0-6 low
-      sendAddress(7,row);  // send row number (7 bits)
+      setRow(0);           // set RA0-5 low
+      delayMicroseconds(10);
+      sendAddress(row);  // send row number (6 bits)
+      delayMicroseconds(10);
       setSTB(0);
+      delayMicroseconds(10);
       setSTB(1);           // pulse /STB
+      delayMicroseconds(10);
       setSDIN(0);          // SDIN low
+      delayMicroseconds(10);
       break;
    }
 }
@@ -1177,7 +1195,7 @@ static void readGalFuseMapRange(const unsigned char* cfgArray, char useDelay, ch
         }
       }
       if (useDelay) {
-        delay(useDelay); // TODO: shouldn't this be between strobeRow() and receiveBit()?
+        delayPrecise(useDelay); // TODO: shouldn't this be between strobeRow() and receiveBit()?
       }
     }
   }
@@ -1195,7 +1213,7 @@ static void readGalFuseMapRange(const unsigned char* cfgArray, char useDelay, ch
       }
     }
     if (useDelay) {
-      delay(useDelay);
+      delayPrecise(useDelay);
     }
   }
 
@@ -1234,7 +1252,7 @@ static void readGalFuseMap(const unsigned char* cfgArray, char useDelay, char do
       }
     }
     if (useDelay) {
-      delay(useDelay); // TODO: shouldn't this be between strobeRow() and receiveBit()?
+      delayPrecise(useDelay); // TODO: shouldn't this be between strobeRow() and receiveBit()?
     }
   }
 
@@ -1251,7 +1269,7 @@ static void readGalFuseMap(const unsigned char* cfgArray, char useDelay, char do
     }
   }
   if (useDelay) {
-    delay(useDelay);
+    delayPrecise(useDelay);
   }
 
   // read CFG
@@ -1298,7 +1316,7 @@ static unsigned short verifyGalFuseMapRange(const unsigned char* cfgArray, char 
         }
       }
       if (useDelay) {
-        delay(useDelay);
+        delayPrecise(useDelay);
       }
     }
   }
@@ -1327,7 +1345,7 @@ static unsigned short verifyGalFuseMapRange(const unsigned char* cfgArray, char 
       }
     }
     if (useDelay) {
-      delay(useDelay);
+      delayPrecise(useDelay);
     }
   }
 
@@ -1394,7 +1412,7 @@ static unsigned short verifyGalFuseMap(const unsigned char* cfgArray, char useDe
       }
     }
     if (useDelay) {
-      delay(useDelay);
+      delayPrecise(useDelay);
     }
   }
 
@@ -1422,7 +1440,7 @@ static unsigned short verifyGalFuseMap(const unsigned char* cfgArray, char useDe
     }
   }
   if (useDelay) {
-    delay(useDelay);
+    delayPrecise(useDelay);
   }
 
   // read CFG
@@ -1576,7 +1594,7 @@ static void writeGalFuseMapV10(const unsigned char* cfgArray, char fillUesStart,
       addr += row;
       sendBit(getFuseBit(addr));
     }
-    sendAddress(6, row);
+    sendAddress(row);
     setPV(1);
     strobe(progtime);
     setPV(0);
@@ -1594,7 +1612,7 @@ static void writeGalFuseMapV10(const unsigned char* cfgArray, char fillUesStart,
   if (!fillUesStart) {
     sendBits(galinfo[gal].bits - 8 * galinfo[gal].uesbytes, 1);
   }
-  sendAddress(6, galinfo[gal].uesrow);
+  sendAddress(galinfo[gal].uesrow);
   setPV(1);
   strobe(progtime);
   setPV(0);
@@ -1616,7 +1634,7 @@ static void writeGalFuseMapV10(const unsigned char* cfgArray, char fillUesStart,
   if (useSdin) {
     // disable power-down feature (JEDEC bit #5892)
     setRow(0);
-    sendAddress(6, 59);
+    sendAddress(59);
     setPV(1);
     strobe(progtime);
     setPV(0);
@@ -1627,28 +1645,110 @@ static void writeGalFuseMapV10(const unsigned char* cfgArray, char fillUesStart,
 // fuse-map writing function for ATF750C chips
 static void writeGalFuseMapV750CRange(const unsigned char* cfgArray, char fillUesStart, char useSdin) {
   unsigned short cfgAddr = galinfo[gal].cfgbase;
-  unsigned char row, bit;
+  unsigned char row, chipRow, bit;
   unsigned short addr;
-
-  setRow(0); //RA0-5 low
-
+	
   if(rangeMemType == range_mem_type::fuses) {
     // write fuse rows
-    for(row = rangeStartRow; row < (rangeStartRow + rangeRowCount); row++) {
-      for (bit = 0; bit < galinfo[gal].bits; bit++) {
-        addr = galinfo[gal].bits * (row - rangeStartRow) + bit;
-        sendBit(getFuseBit(addr));
-      }
-      sendAddress(7, row);
-      setPV(1);
-      strobe(progtime);
-      setPV(0);
+	  setRow(0); //RA0-5 low
+    for(row = rangeStartRow, chipRow = rangeStartRow; row < (rangeStartRow + rangeRowCount); row++, chipRow++) {
+
+/*
+		The following rows cannot be programmed (return all 0xff):
+				(x & 0x03) == 0x03 :
+					003: 00000011
+					007: 00000111
+					011: 00001011
+					015: 00001111
+					019: 00010011
+					023: 00010111
+					027: 00011011
+					031: 00011111
+					035: 00100011
+					039: 00100111
+					043: 00101011
+					047: 00101111
+					051: 00110011
+					055: 00110111
+					059: 00111011
+					067: 01000011
+					071: 01000111
+					075: 01001011
+					079: 01001111
+					
+				(x & 0x0F) == 0x0D :
+					013: 00001101
+					029: 00011101
+					045: 00101101
+					061: 00111101
+					077: 01001101
+					
+				(x & 0x7F) == 0x35 :
+					053: 00110101
+		
+		The following rows cannot be programmed (return almost all 0x00 direct after erasing):
+				(x & 0x7F) == 0x55 :
+					85: 01010101
+				
+				063: 01001111 ==> already covered by rules above
+				095: 01011111 ==> already covered by rules above
+		
+		The following rows cannot be programmed (switches to another programming mode):
+				031: 00011111 ==> already covered by rules above
+		
+		The following rows cannot be programmed (contains PES):
+				127: 01111111 ==> already covered by rules above
+ */
+
+ #if 0
+			while(
+				       ((chipRow & 0x03) == 0x03)
+						|| ((chipRow & 0x0F) == 0x0D)
+						|| ((chipRow & 0x7F) == 0x35)
+						|| ((chipRow & 0x7F) == 0x55)
+				) {
+							chipRow++;
+			}
+#endif
+
+    	if(chipRow != 31)
+    	{ 
+	      for (bit = 0; bit < galinfo[gal].bits; bit++) {
+	        addr = galinfo[gal].bits * (row - rangeStartRow) + bit;
+	        //sendBit(getFuseBit(addr));
+	        sendBit(!((bit == row) || (galinfo[gal].bits - 1 - bit == row) || (bit == row + 1) || (galinfo[gal].bits - 1 - bit == row + 1)));
+	      }
+
+#if 0
+	      sendAddress(chipRow);
+#else	
+				{ 
+					uint8_t n = 7;
+					uint8_t r = chipRow;
+	        uint8_t mask = 1 << (n - 1);
+		      while (n-- > 1) {
+		          sendBit(r & mask);   // clock in row number bits n-1 to 1
+		          r <<= 1;
+		      }
+		      setSDIN(r & mask);       // SDIN = row number bit 0
+			    delayMicroseconds(10);
+				}
+#endif
+      
+	      setPV(1);
+	      delayMicroseconds(100);
+	      strobe(progtime);
+	      setPV(0);
+			  delayPrecise(100);
+    	}
     }
   }
 
+#if 0
   if(rangeMemType == range_mem_type::ues) {
     // write UES
-    if (fillUesStart) {
+    setRow(0); //RA0-5 low
+	  if (fillUesStart) {
       sendBits(galinfo[gal].bits - (8 * galinfo[gal].uesbytes), 1);
     }
     for (bit = 0; bit < (8 * galinfo[gal].uesbytes); bit++) {
@@ -1658,10 +1758,13 @@ static void writeGalFuseMapV750CRange(const unsigned char* cfgArray, char fillUe
     if (!fillUesStart) {
       sendBits(galinfo[gal].bits - (8 * galinfo[gal].uesbytes), 1);
     }
-    sendAddress(7, galinfo[gal].uesrow);
+
+    uint8_t row = galinfo[gal].uesrow;
+    sendAddress(row); 
     setPV(1);
     strobe(progtime);
     setPV(0);
+	  delayPrecise(progtime);
   }
   
   if(rangeMemType == range_mem_type::cfg) {
@@ -1676,16 +1779,19 @@ static void writeGalFuseMapV750CRange(const unsigned char* cfgArray, char fillUe
     setPV(1);
     strobe(progtime);
     setPV(0);
+	  delayPrecise(progtime);
 
     if (useSdin) {
       // disable power-down feature (JEDEC bit #5892)
       setRow(0);
-      sendAddress(7, galinfo[gal].uesrow + 1); // TODO: check if row is correct
+      uint8_t row = galinfo[gal].uesrow + 1; // TODO: check if row is correct
+      sendAddress(row); 
       setPV(1);
       strobe(progtime);
       setPV(0);
     }
-  }  
+  }
+#endif  
 }
 
 
@@ -2074,7 +2180,7 @@ static void testVoltage(int seconds) {
   int i;
   setVPP(1);
   for (i = 0 ; i < seconds; i++) {
-    delay(1000);
+    delayPrecise(1000);
   }
   setVPP(0);
 }
