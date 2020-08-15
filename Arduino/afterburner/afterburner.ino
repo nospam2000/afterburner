@@ -447,7 +447,7 @@ void testRead() {
   if (doDiscardBits) {
     discardBits(doDiscardBits);
   }
-  for(bit = 0; bit < 64; bit++) {
+  for(bit = 0; bit < galinfo[gal].uesbytes * 8; bit++) {
     uint8_t v = receiveBit();
     Serial.write(v ? '1' : '0');
   }
@@ -1206,9 +1206,9 @@ static void readGalFuseMapRange(const unsigned char* cfgArray, char useDelay, ch
     if (doDiscardBits) {
       discardBits(doDiscardBits);
     }
-    for(bit = 0; bit < 64; bit++) {
+    for(bit = 0; bit < galinfo[gal].uesbytes * 8; bit++) {
       if (receiveBit()) {
-        addr = rangeStartRow + bit;
+        addr = bit;
         setFuseBit(addr);
       }
     }
@@ -1227,7 +1227,7 @@ static void readGalFuseMapRange(const unsigned char* cfgArray, char useDelay, ch
     }
     for(bit = 0; bit < galinfo[gal].cfgbits; bit++) {
       if (receiveBit()) {
-        setFuseBit(rangeStartRow + cfgArray[bit]);
+        setFuseBit(cfgArray[bit]);
       }
     }
   }
@@ -1261,7 +1261,7 @@ static void readGalFuseMap(const unsigned char* cfgArray, char useDelay, char do
   if (doDiscardBits) {
     discardBits(doDiscardBits);
   }
-  for(bit = 0; bit < 64; bit++) {
+  for(bit = 0; bit < galinfo[gal].uesbytes * 8; bit++) {
     if (receiveBit()) {
       addr = galinfo[gal].uesfuse;
       addr += bit;
@@ -1327,7 +1327,7 @@ static unsigned short verifyGalFuseMapRange(const unsigned char* cfgArray, char 
     if (doDiscardBits) {
       discardBits(doDiscardBits);
     }
-    for(bit = 0; bit < 64; bit++) {
+    for(bit = 0; bit < galinfo[gal].uesbytes * 8; bit++) {
       addr = rangeStartRow + bit;
       mapBit = getFuseBit(addr);
       fuseBit = receiveBit();
@@ -1421,7 +1421,7 @@ static unsigned short verifyGalFuseMap(const unsigned char* cfgArray, char useDe
   if (doDiscardBits) {
     discardBits(doDiscardBits);
   }
-  for(bit = 0; bit < 64; bit++) {
+  for(bit = 0; bit < galinfo[gal].uesbytes * 8; bit++) {
     addr = galinfo[gal].uesfuse;
     addr += bit;
     mapBit = getFuseBit(addr);
@@ -1564,7 +1564,7 @@ static void writeGalFuseMapV8(const unsigned char* cfgArray) {
 
   // write UES
   setRow(galinfo[gal].uesrow);
-  for (rbit = 0; rbit < 64; rbit++) {
+  for (rbit = 0; rbit < galinfo[gal].uesbytes * 8; rbit++) {
     addr = galinfo[gal].uesfuse;
     addr += rbit;
     sendBit(getFuseBit(addr));
@@ -1605,7 +1605,7 @@ static void writeGalFuseMapV10(const unsigned char* cfgArray, char fillUesStart,
   if (fillUesStart) {
     sendBits(galinfo[gal].bits - 8 * galinfo[gal].uesbytes, 1);
   }
-  for (bit = 0; bit < 64; bit++) {
+  for (bit = 0; bit < galinfo[gal].uesbytes * 8; bit++) {
     addr = galinfo[gal].uesfuse;
     addr += bit;
     sendBit(getFuseBit(addr));
