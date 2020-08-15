@@ -1011,7 +1011,8 @@ static char operationWriteOrVerify(char doWrite) {
     // do typecheck only once for the whole sequence
     uint8_t doTypeCheck = 1;
 
-    if(gal == ATF750C) {
+    //if(gal == ATF750C) {
+    if(gal == ATF750C || gal == ATF22V10C) { // TODO switch back for ATF22V10 to non-batch mode
         const uint8_t rowBatchSize = 30;
         char cmd[64 + 1];
 
@@ -1418,7 +1419,8 @@ static char operationReadFuses(void) {
     sprintf(buf, "#e\r");
     sendLine(buf, MAX_LINE, 1000);
 
-    if(gal == ATF750C) {
+    //if(gal == ATF750C) {
+    if(gal == ATF750C || gal == ATF22V10C) { // TODO switch back for ATF22V10 to non-batch mode
         const uint8_t rowBatchSize = 30; // limited by memory of ATMega328, currently 737 byte => 30 rows
 
         // fuses

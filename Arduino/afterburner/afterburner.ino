@@ -392,7 +392,7 @@ static void printFormatedNumberHex2(unsigned char num) ;
 
 // the number of bit of a row address
 static uint8_t getRowAddrWidth() {
-  if(galinfo[gal].rows > 64)
+  if(galinfo[gal].rows >= 64)
     return 7;
 
   return 6;
@@ -421,7 +421,7 @@ void testRead() {
   unsigned short addr;
 
   //const uint8_t maxrow = galinfo[gal].rows - 1;
-  const uint8_t maxrow = 127;
+  const uint8_t maxrow = (1 << getRowAddrWidth()) - 1;
   turnOn(READGAL);
 
   // read fuse rows
@@ -1514,7 +1514,7 @@ static void readOrVerifyGal(char verify)
       
     case GAL22V10:
     case ATF22V10B:
-    case ATF22V10C:
+    //case ATF22V10C:  // TODO: reactivate this variant again and remove below
       //read with delay 1 ms, discard 68 cfg bits on ATF22V10B/C and 107 on ATF750C
       if (verify) {
         i = verifyGalFuseMap(galinfo[gal].cfg, 1,
@@ -1525,6 +1525,7 @@ static void readOrVerifyGal(char verify)
       } 
       break;
 
+    case ATF22V10C: // TODO: reactivate the non-Range variant above
     case ATF750C:
       //read with delay 1 ms, discard 107 bits on ATF750C
       if (verify) {
@@ -1711,15 +1712,15 @@ static void writeGalFuseMapV750CRange(const unsigned char* cfgArray, char fillUe
 			}
 #endif
 
-    	if(chipRow != 31)
+    	//if(chipRow != 31)
     	{ 
 	      for (bit = 0; bit < galinfo[gal].bits; bit++) {
 	        addr = galinfo[gal].bits * (row - rangeStartRow) + bit;
-	        //sendBit(getFuseBit(addr));
-	        sendBit(!((bit == row) || (galinfo[gal].bits - 1 - bit == row) || (bit == row + 1) || (galinfo[gal].bits - 1 - bit == row + 1)));
+	        sendBit(getFuseBit(addr));
+	        //sendBit(!((bit == row) || (galinfo[gal].bits - 1 - bit == row) || (bit == row + 1) || (galinfo[gal].bits - 1 - bit == row + 1)));
 	      }
 
-#if 0
+#if 1
 	      sendAddress(chipRow);
 #else	
 				{ 
@@ -1739,12 +1740,12 @@ static void writeGalFuseMapV750CRange(const unsigned char* cfgArray, char fillUe
 	      delayMicroseconds(100);
 	      strobe(progtime);
 	      setPV(0);
-			  delayPrecise(100);
+			  delayMicroseconds(100);
     	}
     }
   }
 
-#if 0
+#if 1
   if(rangeMemType == range_mem_type::ues) {
     // write UES
     setRow(0); //RA0-5 low
@@ -1820,10 +1821,11 @@ static void writeGal()
 
     case GAL22V10:
     case ATF22V10B:
-    case ATF22V10C:
+    //case ATF22V10C: // TODO: reactivate this non-Range variant and remove below
         writeGalFuseMapV10(cfgV10, (gal == GAL22V10) ? 0 : 1, (gal == ATF22V10C) ? 1 : 0);
         break; 
 
+    case ATF22V10C: // TODO: reactivate the non-Range variant above
     case ATF750C:
         writeGalFuseMapV750CRange(cfgV750, 1, 1); // TODO: fix 2xconstant 1
         break; 
