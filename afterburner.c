@@ -224,7 +224,7 @@ galinfo[]=
     {ATF16V8B,  0x00, 0x00, "ATF16V8B", 2194, 20, 32,  64, 32, 2056, 8, 63, 54, 58,  8, 60, CFG_BASE_16, cfgV8AB, sizeof(cfgV8AB), CFG_STROBE_ROW},
     {ATF22V10B, 0x00, 0x00, "ATF22V10B",5892, 24, 44, 132, 44, 5828, 8, 61, 60, 58, 10, 16, CFG_BASE_22, cfgV10,  sizeof(cfgV10) , CFG_SET_ROW   },
     {ATF22V10C, 0x00, 0x00, "ATF22V10C",5892, 24, 44, 132, 44, 5828, 8, 61, 60, 58, 10, 16, CFG_BASE_22, cfgV10,  sizeof(cfgV10) , CFG_SET_ROW   },
-    {ATF750C,   0x00, 0x00, "ATF750C", 14499, 24, 84, 171, 84,14435, 8, 61, 60,127, 12, 16, CFG_BASE_750,cfgV750, sizeof(cfgV750), CFG_SET_ROW   }, // TODO: not all numbers are clear
+    {ATF750C,   0x00, 0x00, "ATF750C", 14499, 24, 84, 171, 84,14435, 8, 61, 60,127, 12, 46, CFG_BASE_750,cfgV750, sizeof(cfgV750), CFG_SET_ROW   }, // TODO: not all numbers are clear
 };
 #endif
 
