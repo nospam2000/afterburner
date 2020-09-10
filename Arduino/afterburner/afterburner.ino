@@ -388,8 +388,7 @@ galinfo[]=
     {ATF16V8B,  0x00, 0x00, "ATF16V8B", 2194, 20, 32,  64, 32, 2056, 8, 63, 54, 58,  8, 60, CFG_BASE_16, cfgV8AB, sizeof(cfgV8AB), CFG_STROBE_ROW},
     {ATF22V10B, 0x00, 0x00, "ATF22V10B",5892, 24, 44, 132, 44, 5828, 8, 61, 60, 58, 10, 16, CFG_BASE_22, cfgV10,  sizeof(cfgV10) , CFG_SET_ROW   },
     {ATF22V10C, 0x00, 0x00, "ATF22V10C",5892, 24, 44, 132, 44, 5828, 8, 61, 60, 58, 10, 16, CFG_BASE_22, cfgV10,  sizeof(cfgV10) , CFG_SET_ROW   },
-    //{ATF750C,   0x00, 0x00, "ATF750C", 14499, 24, 84, 171, 84,14435, 8, 61, 60,127, 10, 16, CFG_BASE_750,cfgV750, sizeof(cfgV750), CFG_SET_ROW   }, // TODO: not all numbers are clear
-    {ATF750C,   0x00, 0x00, "ATF750C", 14499, 24, 84, 171, 84,14435, 8, 61, 60,127, 10, 46, CFG_BASE_750,cfgV750, sizeof(cfgV750), CFG_SET_ROW   }, // TODO: not all numbers are clear
+    {ATF750C,   0x00, 0x00, "ATF750C", 14499, 24, 84, 171, 84,14435, 8, 61, 60,127, 10, 16, CFG_BASE_750,cfgV750, sizeof(cfgV750), CFG_SET_ROW   }, // TODO: not all numbers are clear
 };
 
 // MAXFUSES calculated as the biggest required space to hold the fuse bitmap + UES bitmap + CFG bitmap
@@ -484,7 +483,7 @@ void testRead() {
 
   // read UES
   Serial.print(F("\nUES: "));
-  strobeRow(logicalToChipRow(galinfo[gal].uesrow));
+  strobeRow(galinfo[gal].uesrow);
   if (doDiscardBits) {
     discardBits(doDiscardBits);
   }
@@ -952,31 +951,49 @@ static void sendBits(short n, char bitValue)
     }
 }
 
+// reverse the bits of a row number
+// depends on the width of a row
+static uint8_t bitReverse(uint8_t row)
+{
+  unsigned char n = getRowAddrWidth();
+  uint8_t out = 0;
+  for(uint8_t i = 0; i < n; i++) {
+  	out = (out << 1) | (row & 0x01);
+  	row >>= 1;
+  }
+
+  return out;
+}
+
+
 // send row address bits to SDIN 
-// ATF22V10C/ATF750C MSb first, other 22V10 LSb first
+// ATF22V10C MSb first, ATF750C and other 22V10 LSb first
 static void sendAddress(unsigned char row)
 {
   unsigned char n = getRowAddrWidth();
  
   switch (gal) {
-  case ATF22V10C:
-  case ATF750C:
+  case ATF750C:   // LSb first
+	  	row = bitReverse(row);
+	  	// fall through
+  case ATF22V10C: // MSb first
       uint8_t mask = 1 << (n - 1);
       while (n-- > 1) {
-          sendBit(row & mask);   // clock in row number bits 5-1
+          sendBit(row & mask);
           row <<= 1;
       }
-      setSDIN(row & mask);       // SDIN = row number bit 0
+      setSDIN(row & mask);       // last bit is not clocked it, but set statically
       delayMicroseconds(10);
       break;
 
   default:
       while (n-- > 0) {
-          sendBit(row & 1);    // clock in row number bits 0-5
+          sendBit(row & 1);    // clock in row number bits 0..(n-1)
           row >>= 1;
       }
-      setSDIN(0); // SDIN = low
+      setSDIN(0); // SDIN = 0
       delayMicroseconds(10);
+      break;
   }
 }
 
@@ -1227,7 +1244,7 @@ static void readGalFuseMapRange(const unsigned char* cfgArray, char useDelay, ch
   if(rangeMemType == range_mem_type::fuses) {
     // read fuse rows
     for(row = rangeStartRow; row < (rangeStartRow + rangeRowCount); row++) {
-      strobeRow(logicalToChipRow(row)); 
+      strobeRow(row); 
       for(bit = 0; bit < galinfo[gal].bits; bit++) {
         // check the received bit is 1 and if so then set the fuse map
         if (receiveBit()) {
@@ -1243,7 +1260,7 @@ static void readGalFuseMapRange(const unsigned char* cfgArray, char useDelay, ch
 
   if(rangeMemType == range_mem_type::ues) {
     // read UES
-    strobeRow(logicalToChipRow(galinfo[gal].uesrow));
+    strobeRow(galinfo[gal].uesrow);
     if (doDiscardBits) {
       discardBits(doDiscardBits);
     }
@@ -1261,12 +1278,15 @@ static void readGalFuseMapRange(const unsigned char* cfgArray, char useDelay, ch
   if(rangeMemType == range_mem_type::cfg) {
     // read CFG
     if (galinfo[gal].cfgmethod == CFG_STROBE_ROW) {
-      strobeRow(galinfo[gal].cfgrow); // TODO: use logicalToChipRow() here?
+      strobeRow(galinfo[gal].cfgrow);
     } else {
-      setRow(galinfo[gal].cfgrow); // TODO: use logicalToChipRow() here?
+      setRow(galinfo[gal].cfgrow);
       strobe(1);
     }
     for(bit = 0; bit < galinfo[gal].cfgbits; bit++) {
+      if(gal == ATF750C) // TODO: replace by flag in config
+        discardBits(galinfo[gal].bits - galinfo[gal].cfgbits);
+
       if (receiveBit()) {
         setFuseBit(cfgArray[bit]);
       }
@@ -1338,7 +1358,7 @@ static unsigned short verifyGalFuseMapRange(const unsigned char* cfgArray, char 
   if(rangeMemType == range_mem_type::fuses) {
     // read fuse rows
     for(row = rangeStartRow; row < (rangeStartRow + rangeRowCount); row++) {
-      strobeRow(logicalToChipRow(row));
+      strobeRow(row);
       for(bit = 0; bit < galinfo[gal].bits; bit++) {
         addr = galinfo[gal].bits * (row - rangeStartRow) + bit;
         mapBit = getFuseBit(addr);
@@ -1364,7 +1384,7 @@ static unsigned short verifyGalFuseMapRange(const unsigned char* cfgArray, char 
 
   if(rangeMemType == range_mem_type::ues) {
     // read UES
-    strobeRow(logicalToChipRow(galinfo[gal].uesrow));
+    strobeRow(galinfo[gal].uesrow);
     if (doDiscardBits) {
       discardBits(doDiscardBits);
     }
@@ -1393,11 +1413,13 @@ static unsigned short verifyGalFuseMapRange(const unsigned char* cfgArray, char 
   if(rangeMemType == range_mem_type::cfg) {
     // read CFG
     if (galinfo[gal].cfgmethod == CFG_STROBE_ROW) {
-      strobeRow(galinfo[gal].cfgrow); // TODO: use logicalToChipRow() here?
+      strobeRow(galinfo[gal].cfgrow);
     } else {
-      setRow(galinfo[gal].cfgrow); // TODO: use logicalToChipRow() here?
+      setRow(galinfo[gal].cfgrow);
       strobe(1);
     }
+    if(gal == ATF750C) // TODO: replace by flag in config
+      discardBits(galinfo[gal].bits - galinfo[gal].cfgbits);
     for(bit = 0; bit < galinfo[gal].cfgbits; bit++) {
       uint16_t addr = rangeStartRow + cfgArray[bit];
       mapBit = getFuseBit(addr); 
@@ -1684,120 +1706,23 @@ static void writeGalFuseMapV10(const unsigned char* cfgArray, char fillUesStart,
   
 }
 
-
-static uint8_t skipDummyRows(uint8_t chipRow) {
-	if(gal == ATF750C) {
-	  //if(chipRow == 0x1F) {
-	  //  chipRow++;
-	  //}
-	  while(
-	           ((chipRow & 0x03) == 0x03)
-	        || ((chipRow & 0x0F) == 0x0D)
-	        || ((chipRow & 0x7F) == 0x35)
-	        || ((chipRow & 0x7F) == 0x55)
-	    ) {
-	  	    chipRow++;
-	  }
-	}
-	
-	return chipRow;	
-}
-
-static uint8_t logicalToChipRow(uint8_t row) {
-  uint8_t chipRow = 0;
-	if(gal == ATF750C) {
-		for(uint8_t i = 0; i < row; i++) {
-			chipRow++;
-			chipRow = skipDummyRows(chipRow);
-		}
-	}
-	else
-	{
-		chipRow = row;
-	}
-
-		return chipRow;
-}
-
 // fuse-map writing function for ATF750C chips
 // works also for ATF22V10C
 static void writeGalFuseMapV750CRange(const unsigned char* cfgArray, char fillUesStart, char useSdin) {
   unsigned short cfgAddr = galinfo[gal].cfgbase;
-  unsigned char row, chipRow, bit;
+  unsigned char row, bit;
   unsigned short addr;
 	
   if(rangeMemType == range_mem_type::fuses) {
     // write fuse rows
 	  setRow(0); //RA0-5 low
-    for(row = rangeStartRow; row < (rangeStartRow + rangeRowCount); row++, chipRow++) {
-			chipRow = logicalToChipRow(row);
-      uint8_t dummyRow = 0;
-
-/*
-		The following rows cannot be programmed (return all 0xff):
-				(x & 0x03) == 0x03 :
-					003: 00000011
-					007: 00000111
-					011: 00001011
-					015: 00001111
-					019: 00010011
-					023: 00010111
-					027: 00011011
-					031: 00011111
-					035: 00100011
-					039: 00100111
-					043: 00101011
-					047: 00101111
-					051: 00110011
-					055: 00110111
-					059: 00111011
-					067: 01000011
-					071: 01000111
-					075: 01001011
-					079: 01001111
-					
-				(x & 0x0F) == 0x0D :
-					013: 00001101
-					029: 00011101
-					045: 00101101
-					061: 00111101
-					077: 01001101
-					
-				(x & 0x7F) == 0x35 :
-					053: 00110101
-		
-		The following rows cannot be programmed (return almost all 0x00 direct after erasing):
-				(x & 0x7F) == 0x55 :
-					85: 01010101
-				
-				063: 01001111 ==> already covered by rules above
-				095: 01011111 ==> already covered by rules above
-		
-		The following rows cannot be programmed (switches to another programming mode):
-				031: 00011111 ==> already covered by rules above
-		
-		The following rows cannot be programmed (contains PES):
-				127: 01111111 ==> already covered by rules above
- */
-
-
-			//if(dummyRow)
-			  //setRow(0x3E); //RA0,2,3,5 = erase, RA4=config row
-			  //setRow(0x3B);
-			  //setRow(0x37);
-			  //setRow(0x1f);
-			  //setRow(0x0f);
-
+    for(row = rangeStartRow; row < (rangeStartRow + rangeRowCount); row++) {
       for (bit = 0; bit < galinfo[gal].bits; bit++) {
         addr = galinfo[gal].bits * (row - rangeStartRow) + bit;
         sendBit(getFuseBit(addr));
-        //sendBit(dummyRow ? 0 : getFuseBit(addr));
-        //sendBit(!((bit == row) || (galinfo[gal].bits - 1 - bit == row) || (bit == row + 1) || (galinfo[gal].bits - 1 - bit == row + 1)));
-        //sendBit(!((bit == row) || (galinfo[gal].bits - 1 - bit == row) || (bit == chipRow + 1) || (galinfo[gal].bits - 1 - bit == chipRow + 1)));
-        //sendBit(!((bit == chipRow) || (galinfo[gal].bits - 1 - bit == row)));
       }
 
-      sendAddress(chipRow);      
+      sendAddress(row);      
       setPV(1);
       delayMicroseconds(100);
       strobe(progtime);
@@ -1806,7 +1731,6 @@ static void writeGalFuseMapV750CRange(const unsigned char* cfgArray, char fillUe
     }
   }
 
-#if 1
   if(rangeMemType == range_mem_type::ues) {
     // write UES
     setRow(0); //RA0-5 low
@@ -1822,24 +1746,30 @@ static void writeGalFuseMapV750CRange(const unsigned char* cfgArray, char fillUe
     }
 
     uint8_t row = galinfo[gal].uesrow;
-    sendAddress(logicalToChipRow(row)); 
+    sendAddress(row); 
     setPV(1);
     strobe(progtime);
     setPV(0);
 	  delayPrecise(progtime);
   }
-  
+
+#if 1
   if(rangeMemType == range_mem_type::cfg) {
     // write CFG
     setRow(galinfo[gal].cfgrow);
     if(gal == ATF750C) {
+    //if(0) {
       for(bit = 0; bit < galinfo[gal].cfgbits; bit++) {
-	      sendBit(getFuseBit(rangeStartRow + cfgArray[bit]));
+	      //sendBit(getFuseBit(rangeStartRow + cfgArray[bit]));
 	      //sendBit(bit & 0x01); // TODO: dummy data
+	      sendBit(0);
 	    }
+#if 1
+      // shift the cfg bits to the beginning of the row
 	    for(; bit < galinfo[gal].bits; bit++) {
-	      sendBit(1);
+	      sendBit(0);
 	    }
+#endif
     }
     else
     {  	
@@ -1859,8 +1789,11 @@ static void writeGalFuseMapV750CRange(const unsigned char* cfgArray, char fillUe
     if (useSdin) {
       // disable power-down feature (JEDEC bit #5892)
       setRow(0);
+
+      //sendBits(galinfo[gal].bits, 0); // TODO: remove; just for testing
+
       uint8_t row = galinfo[gal].uesrow + 1; // TODO: check if row is correct
-      sendAddress(logicalToChipRow(row)); 
+      sendAddress(row); 
       setPV(1);
       strobe(progtime);
       setPV(0);
