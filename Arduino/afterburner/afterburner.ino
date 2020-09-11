@@ -138,8 +138,8 @@ enum range_mem_type {
 #define CFG_BASE_750 14364
 //#define CFG_BASE_750EXT 14395
 
-#define CFG_STROBE_ROW 0
 #define CFG_SET_ROW 1
+#define CFG_STROBE_ROW 2
 
 // common CFG fuse address map for cfg16V8 and cfg20V8
 // the only difference is the starting address: 2048 for cfg16V8 and 2560 for cfg20V8
@@ -388,7 +388,7 @@ galinfo[]=
     {ATF16V8B,  0x00, 0x00, "ATF16V8B", 2194, 20, 32,  64, 32, 2056, 8, 63, 54, 58,  8, 60, CFG_BASE_16, cfgV8AB, sizeof(cfgV8AB), CFG_STROBE_ROW},
     {ATF22V10B, 0x00, 0x00, "ATF22V10B",5892, 24, 44, 132, 44, 5828, 8, 61, 60, 58, 10, 16, CFG_BASE_22, cfgV10,  sizeof(cfgV10) , CFG_SET_ROW   },
     {ATF22V10C, 0x00, 0x00, "ATF22V10C",5892, 24, 44, 132, 44, 5828, 8, 61, 60, 58, 10, 16, CFG_BASE_22, cfgV10,  sizeof(cfgV10) , CFG_SET_ROW   },
-    {ATF750C,   0x00, 0x00, "ATF750C", 14499, 24, 84, 171, 84,14435, 8, 61, 60,127, 10, 16, CFG_BASE_750,cfgV750, sizeof(cfgV750), CFG_SET_ROW   }, // TODO: not all numbers are clear
+    {ATF750C,   0x00, 0x00, "ATF750C", 14499, 24, 84, 171, 84,14435, 8, 61, 60,127, 10, 16, CFG_BASE_750,cfgV750, sizeof(cfgV750), CFG_SET_ROW | CFG_STROBE_ROW}, // TODO: not all numbers are clear
 };
 
 // MAXFUSES calculated as the biggest required space to hold the fuse bitmap + UES bitmap + CFG bitmap
@@ -437,6 +437,19 @@ static uint8_t getRowAddrWidth() {
 
   return 6;
 }
+
+static uint8_t bitReverse(uint8_t row)
+{
+  unsigned char n = getRowAddrWidth();
+  uint8_t out = 0;
+  for(uint8_t i = 0; i < n; i++) {
+  	out = (out << 1) | (row & 0x01);
+  	row >>= 1;
+  }
+
+  return out;
+}
+
 
 #define TEST750
 #ifdef TEST750
@@ -495,13 +508,15 @@ void testRead() {
     delayPrecise(useDelay);
   }
 
+
   // read CFG
-  Serial.print(F("\n\nCFG: "));
+/*
+  Serial.print(F("\n\nCFG16: "));
   if (galinfo[gal].cfgmethod == CFG_STROBE_ROW) {
     strobeRow(galinfo[gal].cfgrow);
   } else {
     setRow(galinfo[gal].cfgrow);
-    strobe(1);
+    strobe(20);
   }
   for(bit = 0; bit < galinfo[gal].cfgbits; bit++) {
     uint8_t v = receiveBit();
@@ -510,20 +525,53 @@ void testRead() {
   if (useDelay) {
     delayPrecise(useDelay);
   }
-  Serial.println();
+
+  Serial.print(F("\nCFG16: "));
+  //if (galinfo[gal].cfgmethod == CFG_STROBE_ROW) {
+  if (1) {
+    strobeRow(galinfo[gal].cfgrow);
+  } else {
+    setRow(galinfo[gal].cfgrow);
+    strobe(3);
+  }
+  for(bit = 0; bit < galinfo[gal].cfgbits; bit++) {
+    uint8_t v = receiveBit();
+    Serial.write(v ? '1' : '0');
+  }
+  if (useDelay) {
+    delayPrecise(useDelay);
+  }
+
+  Serial.print(F("\nCFG16: "));
+  //if (galinfo[gal].cfgmethod == CFG_STROBE_ROW) {
+  if(0) {
+    strobeRow(galinfo[gal].cfgrow);
+  } else {
+    setRow(galinfo[gal].cfgrow);
+    strobe(3);
+  }
+  for(bit = 0; bit < galinfo[gal].cfgbits; bit++) {
+    uint8_t v = receiveBit();
+    Serial.write(v ? '1' : '0');
+  }
+  if (useDelay) {
+    delayPrecise(useDelay);
+  }
+*/
 
   for(uint8_t i = 0; i < 64; i++) {
+    Serial.write('C');
     if(i < 10) Serial.write('0');
     Serial.print(i);
     Serial.print(F(": "));
-    if (galinfo[gal].cfgmethod == CFG_STROBE_ROW) {
+    if (galinfo[gal].cfgmethod & CFG_STROBE_ROW) {
       strobeRow(i);
-    } else {
-      setRow(i);
-      strobe(1);
     }
-    //for(bit = 0; bit < galinfo[gal].cfgbits; bit++) {
-    for(bit = 0; bit < 171; bit++) {
+    if (galinfo[gal].cfgmethod & CFG_SET_ROW) {
+      setRow(i);
+      strobe(3);
+    }
+    for(bit = 0; bit < galinfo[gal].cfgbits; bit++) {
       uint8_t v = receiveBit();
       Serial.write(v ? '1' : '0');
     }
@@ -951,21 +999,6 @@ static void sendBits(short n, char bitValue)
     }
 }
 
-// reverse the bits of a row number
-// depends on the width of a row
-static uint8_t bitReverse(uint8_t row)
-{
-  unsigned char n = getRowAddrWidth();
-  uint8_t out = 0;
-  for(uint8_t i = 0; i < n; i++) {
-  	out = (out << 1) | (row & 0x01);
-  	row >>= 1;
-  }
-
-  return out;
-}
-
-
 // send row address bits to SDIN 
 // ATF22V10C MSb first, ATF750C and other 22V10 LSb first
 static void sendAddress(unsigned char row)
@@ -1008,6 +1041,7 @@ static void delayPrecise(uint16_t msec) {
 // pulse STB pin low for some milliseconds 
 static void strobe(unsigned short msec)
 {
+  delayMicroseconds(20L);
   setSTB(0);
   delayPrecise(msec);
   setSTB(1);
@@ -1790,7 +1824,8 @@ static void writeGalFuseMapV750CRange(const unsigned char* cfgArray, char fillUe
       // disable power-down feature (JEDEC bit #5892)
       setRow(0);
 
-      //sendBits(galinfo[gal].bits, 0); // TODO: remove; just for testing
+
+sendBits(galinfo[gal].bits, 0); // TODO: remove; just for testing
 
       uint8_t row = galinfo[gal].uesrow + 1; // TODO: check if row is correct
       sendAddress(row); 
