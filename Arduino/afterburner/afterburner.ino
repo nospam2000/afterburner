@@ -1207,14 +1207,14 @@ static void readGalFuseMapRange(const unsigned char* cfgArray, char useDelay, ch
         strobe(3);
       }
       for(bit = 0; bit < galinfo[gal].cfgrowlen; bit++) {
-        uint8_t v = receiveBit();
-        if (v) {
-          setFuseBit(cfgArray[bit + i * galinfo[gal].cfgrowlen]);
-        }
+        uint8_t absBit = bit + i * galinfo[gal].cfgrowlen;
+        if (absBit >= galinfo[gal].cfgbits)
+          break;
+        if (receiveBit())
+          setFuseBit(cfgArray[absBit]);
       }
-      if (useDelay) {
+      if (useDelay)
         delayPrecise(useDelay);
-      }
     }
   }
 }
@@ -1337,30 +1337,42 @@ static unsigned short verifyGalFuseMapRange(const unsigned char* cfgArray, char 
 
   if(rangeMemType == range_mem_type::cfg) {
     // read CFG
-    if (galinfo[gal].cfgmethod == CFG_STROBE_ROW) {
-      strobeRow(galinfo[gal].cfgrow);
-    } else {
-      setRow(galinfo[gal].cfgrow);
-      strobe(1);
-    }
-    if(gal == ATF750C) // TODO: replace by flag in config
-      discardBits(galinfo[gal].bits - galinfo[gal].cfgbits);
-    for(bit = 0; bit < galinfo[gal].cfgbits; bit++) {
-      uint16_t addr = rangeStartRow + cfgArray[bit];
-      mapBit = getFuseBit(addr); 
-      fuseBit = receiveBit();
-      if (mapBit != fuseBit) {
-  #ifdef DEBUG_VERIFY
-        Serial.print(F("C a="));
-        Serial.print(bit, DEC);
-        Serial.print(F(" "));
-        Serial.print(addr, DEC);
-        Serial.print(F(" "));
-        Serial.print(mapBit, DEC);
-        Serial.println(fuseBit, DEC);
-  #endif
-        errors++;
+    uint8_t cfgrowcount = 1;
+    if(galinfo[gal].cfgrowlen > 0)
+      cfgrowcount = (galinfo[gal].cfgbits + (galinfo[gal].cfgrowlen - 1)) / galinfo[gal].cfgrowlen;
+    for(uint8_t i = 0; i < cfgrowcount; i++) {
+      if (galinfo[gal].cfgmethod == CFG_STROBE_ROW2) {
+        strobeConfigRow(i + galinfo[gal].cfgstroberow);
       }
+      else if (galinfo[gal].cfgmethod == CFG_STROBE_ROW) {
+        strobeRow(i + galinfo[gal].cfgrow);
+      }
+      else if (galinfo[gal].cfgmethod == CFG_SET_ROW) {
+        setRow(i + galinfo[gal].cfgrow);
+        strobe(3);
+      }
+      for(bit = 0; bit < galinfo[gal].cfgrowlen; bit++) {
+        uint8_t absBit = bit + i * galinfo[gal].cfgrowlen;
+        if (absBit >= galinfo[gal].cfgbits)
+          break;
+        uint16_t addr = rangeStartRow + cfgArray[absBit];
+        mapBit = getFuseBit(addr); 
+        fuseBit = receiveBit();
+        if (mapBit != fuseBit) {
+    #ifdef DEBUG_VERIFY
+          Serial.print(F("C a="));
+          Serial.print(absBit, DEC);
+          Serial.print(F(" "));
+          Serial.print(addr, DEC);
+          Serial.print(F(" "));
+          Serial.print(mapBit, DEC);
+          Serial.println(fuseBit, DEC);
+    #endif
+          errors++;
+        }
+      }
+      if (useDelay)
+        delayPrecise(useDelay);
     }
   }
 
