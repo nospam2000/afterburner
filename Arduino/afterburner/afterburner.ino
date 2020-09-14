@@ -863,19 +863,24 @@ static void sendBits(short n, char bitValue)
 static void sendAddress(unsigned char row)
 {
   unsigned char n = getRowAddrWidth();
+  uint8_t mask = 1 << (n - 1);
  
   switch (gal) {
-  case ATF750C:   // LSb first
-	  	row = bitReverse(row);
-      // fall through
   case ATF22V10C: // MSb first
-      uint8_t mask = 1 << (n - 1);
       while (n-- > 1) {
           sendBit(row & mask);
           row <<= 1;
       }
       setSDIN(row & mask);       // last bit is not clocked it, but set statically
       delayMicroseconds(10);
+      break;
+
+  case ATF750C:   // LSb first
+	  	row = bitReverse(row);
+      while (n-- >= 1) {
+          sendBit(row & mask);
+          row <<= 1;
+      }
       break;
 
   default:
@@ -1653,6 +1658,7 @@ static void writeGalFuseMapV750CRange(const unsigned char* cfgArray, char fillUe
   if(rangeMemType == range_mem_type::fuses) {
     // write fuse rows
 	  setRow(0); //RA0-5 low
+    delayMicroseconds(20);
     for(row = rangeStartRow; row < (rangeStartRow + rangeRowCount); row++) {
       for (bit = 0; bit < galinfo[gal].bits; bit++) {
         addr = galinfo[gal].bits * (row - rangeStartRow) + bit;
@@ -1661,10 +1667,11 @@ static void writeGalFuseMapV750CRange(const unsigned char* cfgArray, char fillUe
 
       sendAddress(row);      
       setPV(1);
-      delayMicroseconds(100);
+      delayMicroseconds(20);
       strobe(progtime);
-      setPV(0);
       delayMicroseconds(100);
+      setPV(0);
+      delayMicroseconds(12);
     }
   }
 
@@ -1690,54 +1697,58 @@ static void writeGalFuseMapV750CRange(const unsigned char* cfgArray, char fillUe
 	  delayPrecise(progtime);
   }
 
-#if 1
   if(rangeMemType == range_mem_type::cfg) {
     // write CFG
-    setRow(galinfo[gal].cfgrow);
-    if(gal == ATF750C) {
-    //if(0) {
-      for(bit = 0; bit < galinfo[gal].cfgbits; bit++) {
-	      //sendBit(getFuseBit(rangeStartRow + cfgArray[bit]));
-	      //sendBit(bit & 0x01); // TODO: dummy data
-	      sendBit(0);
-	    }
-#if 1
-      // shift the cfg bits to the beginning of the row
-	    for(; bit < galinfo[gal].bits; bit++) {
-	      sendBit(0);
-	    }
-#endif
+    if(galinfo[gal].cfgrowlen > 0) { // e.g. ATF750C
+      uint8_t cfgrowcount = cfgrowcount = (galinfo[gal].cfgbits + (galinfo[gal].cfgrowlen - 1)) / galinfo[gal].cfgrowlen;
+      for(uint8_t i = 0; i < cfgrowcount; i++) {
+        setRow(0);           // set RA0-5 low
+        delayMicroseconds(10);
+        setRow(galinfo[gal].cfgrow);
+
+        for(bit = 0; bit < galinfo[gal].cfgrowlen; bit++) {
+          uint8_t absBit = bit + i * galinfo[gal].cfgrowlen;
+          uint8_t v = (absBit < galinfo[gal].cfgbits) ? getFuseBit(rangeStartRow + cfgArray[absBit]) : 0;
+          sendBit(v);
+        }
+
+        sendAddress(i + galinfo[gal].cfgstroberow);
+        delayMicroseconds(10);
+        setPV(1);
+        delayMicroseconds(18);
+        strobe(progtime); // 20ms
+        delayMicroseconds(32);
+        setPV(0);
+        delayMicroseconds(12);
+      }
+      delayPrecise(progtime);
     }
-    else
+    else // e.g. ATF22V10C
     {  	
+      setRow(galinfo[gal].cfgrow);
       for(bit = 0; bit < galinfo[gal].cfgbits - useSdin; bit++) {
 	      sendBit(getFuseBit(rangeStartRow + cfgArray[bit]));
-	      //sendBit(bit & 0x01); // TODO: dummy data
 	    }
 	    if (useSdin) {
 	      setSDIN(getFuseBit(rangeStartRow + cfgArray[galinfo[gal].cfgbits - 1]));
 	    }
+      setPV(1);
+      strobe(progtime);
+      setPV(0);
+      delayPrecise(progtime);
   	}
-	  setPV(1);
-    strobe(progtime);
-    setPV(0);
-	  delayPrecise(progtime);
 
     if (useSdin) {
       // disable power-down feature (JEDEC bit #5892)
       setRow(0);
-
-
-sendBits(galinfo[gal].bits, 0); // TODO: remove; just for testing
-
       uint8_t row = galinfo[gal].uesrow + 1; // TODO: check if row is correct
       sendAddress(row); 
       setPV(1);
       strobe(progtime);
       setPV(0);
+  	  delayPrecise(progtime);
     }
   }
-#endif  
 }
 
 
