@@ -178,174 +178,23 @@ static const unsigned char cfgV10[]=
       // TODO: is the value 84 for Powerdown fuse missing here?
 };
 
-static const unsigned char cfgV750[]=
-{
-    // TODO: order is not clear
-#if 0
-//not working 2020-08-12 13:09
-   34, 33, 32, 31,     2,  1,  0, // 0  S6..S0
-   //38, 37, 36, 35,     5,  4,  3, // 7
-   3, 4, 5, 35, 36, 37, 38,            // S0..S6
-   //42, 41, 40, 39,     8,  7,  6, // 14
-   39, 40, 41, 42,    6, 7, 8,         // S3..S6, S0..S2
-   //46, 45, 44, 43,    11, 10,  9, // 21
-   11, 10, 9, 46, 45, 44, 43,         // S2..S0, S6..S3
-   50, 49, 48, 47,    14, 13, 12, // 28
-   54, 53, 52, 51,    17, 16, 15, // 35
-   58, 57, 56, 55,    20, 19, 18, // 42
-   62, 61, 60, 59,    23, 22, 21, // 49
-   66, 65, 64, 63,    26, 25, 24, // 56
-   70, 69, 68, 67,    29, 28, 27, // 63
-   30,  // 75: Security?
-#endif
-
-#if 0
-//not working 2020-08-12 13:09
-   34, 33, 32, 31,     2,  1,  0, // 0 
-   38, 37, 36, 35,     5,  4,  3, // 7
-   42, 41, 40, 39,     8,  7,  6, // 14
-   46, 45, 44, 43,    11, 10,  9, // 21
-   50, 49, 48, 47,    14, 13, 12, // 28
-   54, 53, 52, 51,    17, 16, 15, // 35
-   58, 57, 56, 55,    20, 19, 18, // 42
-   62, 61, 60, 59,    23, 22, 21, // 49
-   66, 65, 64, 63,    26, 25, 24, // 56
-   70, 69, 68, 67,    29, 28, 27, // 63
-   30,  // 75: Security?
-#endif
-
-#if 1
-// not working 2020-08-16 10:09
-   34, 33, 32, 31,     2,  1,  0, // 0 
-   38, 37, 36, 35,     5,  4,  3, // 7
-   42, 41, 40, 39,     8,  7,  6, // 14
-   46, 45, 44, 43,    11, 10,  9, // 21
-   50, 49, 48, 47,    14, 13, 12, // 28
-   54, 53, 52, 51,    17, 16, 15, // 35
-   58, 57, 56, 55,    20, 19, 18, // 42
-   62, 61, 60, 59,    23, 22, 21, // 49
-   66, 65, 64, 63,    26, 25, 24, // 56
-   70, 69, 68, 67,    29, 28, 27, // 63
-     30,  // 75: Security?
-    135, // 70: Powerdown
-    136, // 71: PinKeeper
-    137, // 72: unknown
-    138, // 73: unknown
-    139, // 74: unknown
-#endif
-
-#if 0
-//not working 2020-08-13 13:09
-   30,  // 75: Security?
-   34, 33, 32, 31,     2,  1,  0, // 0 
-   38, 37, 36, 35,     5,  4,  3, // 7
-   42, 41, 40, 39,     8,  7,  6, // 14
-   46, 45, 44, 43,    11, 10,  9, // 21
-   50, 49, 48, 47,    14, 13, 12, // 28
-   54, 53, 52, 51,    17, 16, 15, // 35
-   58, 57, 56, 55,    20, 19, 18, // 42
-   62, 61, 60, 59,    23, 22, 21, // 49
-   66, 65, 64, 63,    26, 25, 24, // 56
-   70, 69, 68, 67,    29, 28, 27, // 63
-#endif
-
-#if 0
-//not working 2020-08-12 13:09
-      2,  1,  0,   34, 33, 32, 31, // 0 offset
-      5,  4,  3,   38, 37, 36, 35, // 7
-      8,  7,  6,   42, 41, 40, 39, // 14
-     11, 10,  9,   46, 45, 44, 43, // 21
-     14, 13, 12,   50, 49, 48, 47, // 28
-     17, 16, 15,   54, 53, 52, 51, // 35
-     20, 19, 18,   58, 57, 56, 55, // 42
-     23, 22, 21,   62, 61, 60, 59, // 49
-     26, 25, 24,   66, 65, 64, 63, // 56
-     29, 28, 27,   70, 69, 68, 67, // 63
-     30,  // 75: Security?
-#endif
-
-#if 0
-//not working 2020-08-16 08:29
-      2,  1,  0,   34, 33, 32, 31, // 0 offset
-      5,  4,  3,   38, 37, 36, 35, // 7
-      8,  7,  6,   42, 41, 40, 39, // 14
-     11, 10,  9,   46, 45, 44, 43, // 21
-     14, 13, 12,   50, 49, 48, 47, // 28
-     17, 16, 15,   54, 53, 52, 51, // 35
-     20, 19, 18,   58, 57, 56, 55, // 42
-     23, 22, 21,   62, 61, 60, 59, // 49
-     26, 25, 24,   66, 65, 64, 63, // 56
-     29, 28, 27,   70, 69, 68, 67, // 63
-     30,  // 75: Security?
-    135, // 70: Powerdown
-    136, // 71: PinKeeper
-    137, // 72: unknown
-    138, // 73: unknown
-    139, // 74: unknown
-#endif
-
-#if 0
-//not working 2020-08-12 13:09
-      2,  1,  0,
-      5,  4,  3,
-      8,  7,  6,
-     11, 10,  9,
-     14, 13, 12,
-     17, 16, 15,
-     20, 19, 18,
-     23, 22, 21,
-     26, 25, 24,
-     29, 28, 27,
-
-   34, 33, 32, 31, // 0 
-   38, 37, 36, 35, // 7
-   42, 41, 40, 39, // 14
-   46, 45, 44, 43, // 21
-   50, 49, 48, 47, // 28
-   54, 53, 52, 51, // 35
-   58, 57, 56, 55, // 42
-   62, 61, 60, 59, // 49
-   66, 65, 64, 63, // 56
-   70, 69, 68, 67, // 63
-   30,  // 75: Security?
-#endif
-
-#if 0
-//not working 2020-08-12 13:09
-      2,  1,  0,
-      5,  4,  3,
-      8,  7,  6,
-     11, 10,  9,
-     14, 13, 12,
-     17, 16, 15,
-     20, 19, 18,
-     23, 22, 21,
-     26, 25, 24,
-     29, 28, 27,
-
-   30,  // 75: Security?
-
-   34, 33, 32, 31, // 0 
-   38, 37, 36, 35, // 7
-   42, 41, 40, 39, // 14
-   46, 45, 44, 43, // 21
-   50, 49, 48, 47, // 28
-   54, 53, 52, 51, // 35
-   58, 57, 56, 55, // 42
-   62, 61, 60, 59, // 49
-   66, 65, 64, 63, // 56
-   70, 69, 68, 67, // 63
-#endif
-
-    // TODO: unclear how to handle those:
-    /*
-    30,  // 75: Security?
-    135, // 70: Powerdown
-    136, // 71: PinKeeper
-    137, // 72: unknown
-    138, // 73: unknown
-    139, // 74: unknown
-    */
+// TODO: unclear how to handle those:
+/*
+30,  // 75: Security?
+135, // 70: Powerdown
+136, // 71: PinKeeper
+137, // 72: reserved1
+138, // 73: reserved2
+139, // 74: reserved3
+*/
+static const uint8_t cfgV750[] = {
+   0,  3,  6,  9, 12, 15, 18, 21, 24, 27, // S0
+   1,  4,  7, 10, 13, 16, 19, 22, 25, 28, // S1
+   2,  5,  8, 11, 14, 17, 20, 23, 26, 29, // S2
+  31, 35, 39, 43, 47, 51, 55, 59, 63, 67, // S3
+  32, 36, 40, 44, 48, 52, 56, 60, 64, 68, // S4
+  33, 37, 41, 45, 49, 53, 57, 61, 65, 69, // S5
+  34, 38, 42, 46, 50, 54, 58, 62, 66, 70  // S6
 };
 
 
@@ -371,6 +220,8 @@ static struct
     char pesrow;                    /* row address for PES read/write     */
     char pesbytes;                  /* number of PES bytes                */
     char cfgrow;                    /* row address of config bits         */
+    char cfgstroberow;              /* row address of config bits to be used for strobe */
+    char cfgrowlen;                 /* >0 when config bits are split into multiple rows */
     unsigned short cfgbase;         /* base address of the config bit numbers */
     const unsigned char *cfg;       /* pointer to config bit numbers      */
     unsigned char cfgbits;          /* number of config bits              */
@@ -378,18 +229,19 @@ static struct
 }
 galinfo[]=
 {
-//                                      + fuses         + bits       +uesbytes   +pesrow          +cfgbase
-//                                      |     +pins     |  +uesrow   |  +eraserow|   +pesbytes    |        +cfg
-//   +-- type   + id0 + id1  +- name    |     |   +rows |  |   +uesfuse |   +eraseallrow +cfgrow  |        |       + cfgbits        +cfgmethod
-//   |          |     |      |          |     |   |     |  |   |     |  |   |    |   |   |        |        |       |                |
-    {UNKNOWN,   0x00, 0x00, "unknown",     0,  0,  0,   0,  0,    0, 0,  0,  0,  0,  8,  0,       0,        NULL,      0         , 0},
-    {GAL16V8,   0x00, 0x1A, "GAL16V8",  2194, 20, 32,  64, 32, 2056, 8, 63, 54, 58,  8, 60, CFG_BASE_16, cfgV8AB, sizeof(cfgV8AB), CFG_STROBE_ROW}, 
-    {GAL20V8,   0x20, 0x3A, "GAL20V8",  2706, 24, 40,  64, 40, 2568, 8, 63, 59, 58,  8, 60, CFG_BASE_20, cfgV8AB, sizeof(cfgV8AB), CFG_STROBE_ROW}, 
-    {GAL22V10,  0x48, 0x49, "GAL22V10", 5892, 24, 44, 132, 44, 5828, 8, 61, 60, 58, 10, 16, CFG_BASE_22, cfgV10,  sizeof(cfgV10) , CFG_SET_ROW   },
-    {ATF16V8B,  0x00, 0x00, "ATF16V8B", 2194, 20, 32,  64, 32, 2056, 8, 63, 54, 58,  8, 60, CFG_BASE_16, cfgV8AB, sizeof(cfgV8AB), CFG_STROBE_ROW},
-    {ATF22V10B, 0x00, 0x00, "ATF22V10B",5892, 24, 44, 132, 44, 5828, 8, 61, 60, 58, 10, 16, CFG_BASE_22, cfgV10,  sizeof(cfgV10) , CFG_SET_ROW   },
-    {ATF22V10C, 0x00, 0x00, "ATF22V10C",5892, 24, 44, 132, 44, 5828, 8, 61, 60, 58, 10, 16, CFG_BASE_22, cfgV10,  sizeof(cfgV10) , CFG_SET_ROW   },
-    {ATF750C,   0x00, 0x00, "ATF750C", 14499, 24, 84, 171, 84,14435, 8, 61, 60,127, 10, 16, CFG_BASE_750,cfgV750, sizeof(cfgV750), CFG_STROBE_ROW2}, // TODO: not all numbers are clear
+//                                      + fuses         + bits       +uesbytes   +pesrow                +cfgbase
+//                                      |     +pins     |  +uesrow   |  +eraserow|   +pesbytes          |        +cfg
+//   +-- type   + id0 + id1  +- name    |     |   +rows |  |   +uesfuse |   +eraseallrow +cfgrow +cfgrowlen      |        + cfgbits        +cfgmethod
+//   |          |     |      |          |     |   |     |  |   |     |  |   |    |   |   |   +cfgstroberow       |        |                |
+//   |          |     |      |          |     |   |     |  |   |     |  |   |    |   |   |   |   |      |        |        |                |
+    {UNKNOWN,   0x00, 0x00, "unknown",     0,  0,  0,   0,  0,    0, 0,  0,  0,  0,  8,  0,  0,  0,     0,       NULL,    0              , 0},
+    {GAL16V8,   0x00, 0x1A, "GAL16V8",  2194, 20, 32,  64, 32, 2056, 8, 63, 54, 58,  8, 60,  0,  0, CFG_BASE_16, cfgV8AB, sizeof(cfgV8AB), CFG_STROBE_ROW}, 
+    {GAL20V8,   0x20, 0x3A, "GAL20V8",  2706, 24, 40,  64, 40, 2568, 8, 63, 59, 58,  8, 60,  0,  0, CFG_BASE_20, cfgV8AB, sizeof(cfgV8AB), CFG_STROBE_ROW}, 
+    {GAL22V10,  0x48, 0x49, "GAL22V10", 5892, 24, 44, 132, 44, 5828, 8, 61, 60, 58, 10, 16,  0,  0, CFG_BASE_22, cfgV10,  sizeof(cfgV10) , CFG_SET_ROW   },
+    {ATF16V8B,  0x00, 0x00, "ATF16V8B", 2194, 20, 32,  64, 32, 2056, 8, 63, 54, 58,  8, 60,  0,  0, CFG_BASE_16, cfgV8AB, sizeof(cfgV8AB), CFG_STROBE_ROW},
+    {ATF22V10B, 0x00, 0x00, "ATF22V10B",5892, 24, 44, 132, 44, 5828, 8, 61, 60, 58, 10, 16,  0,  0, CFG_BASE_22, cfgV10,  sizeof(cfgV10) , CFG_SET_ROW   },
+    {ATF22V10C, 0x00, 0x00, "ATF22V10C",5892, 24, 44, 132, 44, 5828, 8, 61, 60, 58, 10, 16,  0,  0, CFG_BASE_22, cfgV10,  sizeof(cfgV10) , CFG_SET_ROW   },
+    {ATF750C,   0x00, 0x00, "ATF750C", 14499, 24, 84, 171, 84,14435, 8, 61, 60,127, 10, 16, 32, 10, CFG_BASE_750,cfgV750, sizeof(cfgV750), CFG_STROBE_ROW2}, // TODO: not all numbers are clear
 };
 
 // MAXFUSES calculated as the biggest required space to hold the fuse bitmap + UES bitmap + CFG bitmap
@@ -510,23 +362,26 @@ void testRead() {
   }
   Serial.println();
 
-  // read CFG new 2, emulation of GALEP-4 algorithm
-  for(uint8_t i = 32; i <= 41; i++) {
+  // read CFG new 2
+  uint8_t cfgrowcount = 1;
+  if(galinfo[gal].cfgrowlen > 0)
+    cfgrowcount = (galinfo[gal].cfgbits + (galinfo[gal].cfgrowlen - 1)) / galinfo[gal].cfgrowlen;
+  for(uint8_t i = 0; i < cfgrowcount; i++) {
     Serial.write('Y');
     if(i < 10) Serial.write('0');
-    Serial.print(i);
+    Serial.print(i + galinfo[gal].cfgstroberow);
     Serial.print(F(": "));
-    if (galinfo[gal].cfgmethod == CFG_STROBE_ROW) {
-      strobeRow(i);
+    if (galinfo[gal].cfgmethod == CFG_STROBE_ROW2) {
+      strobeConfigRow(i + galinfo[gal].cfgstroberow);
     }
-    else if (galinfo[gal].cfgmethod == CFG_STROBE_ROW2) {
-      strobeConfigRow(i);
+    else if (galinfo[gal].cfgmethod == CFG_STROBE_ROW) {
+      strobeRow(i + galinfo[gal].cfgrow);
     }
     else if (galinfo[gal].cfgmethod == CFG_SET_ROW) {
-      setRow(i);
+      setRow(i + galinfo[gal].cfgrow);
       strobe(3);
     }
-    for(bit = 0; bit < 10; bit++) {
+    for(bit = 0; bit < galinfo[gal].cfgrowlen; bit++) {
       uint8_t v = receiveBit();
       Serial.write(v ? '1' : '0');
     }
@@ -1337,18 +1192,28 @@ static void readGalFuseMapRange(const unsigned char* cfgArray, char useDelay, ch
 
   if(rangeMemType == range_mem_type::cfg) {
     // read CFG
-    if (galinfo[gal].cfgmethod == CFG_STROBE_ROW) {
-      strobeRow(galinfo[gal].cfgrow);
-    } else {
-      setRow(galinfo[gal].cfgrow);
-      strobe(1);
-    }
-    for(bit = 0; bit < galinfo[gal].cfgbits; bit++) {
-      if(gal == ATF750C) // TODO: replace by flag in config
-        discardBits(galinfo[gal].bits - galinfo[gal].cfgbits);
-
-      if (receiveBit()) {
-        setFuseBit(cfgArray[bit]);
+    uint8_t cfgrowcount = 1;
+    if(galinfo[gal].cfgrowlen > 0)
+      cfgrowcount = (galinfo[gal].cfgbits + (galinfo[gal].cfgrowlen - 1)) / galinfo[gal].cfgrowlen;
+    for(uint8_t i = 0; i < cfgrowcount; i++) {
+      if (galinfo[gal].cfgmethod == CFG_STROBE_ROW2) {
+        strobeConfigRow(i + galinfo[gal].cfgstroberow);
+      }
+      else if (galinfo[gal].cfgmethod == CFG_STROBE_ROW) {
+        strobeRow(i + galinfo[gal].cfgrow);
+      }
+      else if (galinfo[gal].cfgmethod == CFG_SET_ROW) {
+        setRow(i + galinfo[gal].cfgrow);
+        strobe(3);
+      }
+      for(bit = 0; bit < galinfo[gal].cfgrowlen; bit++) {
+        uint8_t v = receiveBit();
+        if (v) {
+          setFuseBit(cfgArray[bit + i * galinfo[gal].cfgrowlen]);
+        }
+      }
+      if (useDelay) {
+        delayPrecise(useDelay);
       }
     }
   }
