@@ -322,6 +322,9 @@ void testRead() {
   const unsigned char* cfgArray = (gal == ATF750C) ? cfgV750 : cfgV10;
   char useDelay = 1;
   char doDiscardBits = galinfo[gal].bits - 8 * galinfo[gal].uesbytes;
+  if(galinfo[gal].type == ATF750C)
+    doDiscardBits--;
+
   unsigned short cfgAddr = galinfo[gal].cfgbase;
   unsigned short row, bit;
   unsigned short addr;
@@ -1529,9 +1532,9 @@ static void readOrVerifyGal(char verify)
     case ATF750C:
       //read with delay 1 ms, discard 107 bits on ATF750C
       if (verify) {
-        i = verifyGalFuseMapRange(galinfo[gal].cfg, 1, galinfo[gal].bits - 8 * galinfo[gal].uesbytes);
+        i = verifyGalFuseMapRange(galinfo[gal].cfg, 1, galinfo[gal].bits - 8 * galinfo[gal].uesbytes - 1);
       } else {
-        readGalFuseMapRange(galinfo[gal].cfg, 1, galinfo[gal].bits - 8 * galinfo[gal].uesbytes);
+        readGalFuseMapRange(galinfo[gal].cfg, 1, galinfo[gal].bits - 8 * galinfo[gal].uesbytes - 1);
       } 
       break;
   }
@@ -1672,16 +1675,26 @@ static void writeGalFuseMapV750CRange(const unsigned char* cfgArray, char fillUe
 
   if(rangeMemType == range_mem_type::ues) {
     // write UES
+    uint8_t fillBitsBegin = galinfo[gal].bits - (8 * galinfo[gal].uesbytes);
+    if(galinfo[gal].type == ATF750C)
+      fillBitsBegin--;
+
     setRow(0); //RA0-5 low
 	  if (fillUesStart) {
-      sendBits(galinfo[gal].bits - (8 * galinfo[gal].uesbytes), 0);
+      sendBits(fillBitsBegin, 0);
     }
+    else {
+      fillBitsBegin = 0;
+    }
+
     for (bit = 0; bit < (8 * galinfo[gal].uesbytes); bit++) {
       addr = rangeStartRow + bit;
       sendBit(getFuseBit(addr));
     }
-    if (!fillUesStart) {
-      sendBits(galinfo[gal].bits - (8 * galinfo[gal].uesbytes), 0);
+
+    uint8_t fillBitsEnd = galinfo[gal].bits - (8 * galinfo[gal].uesbytes) - fillBitsBegin;
+    if (fillBitsEnd > 0) {
+      sendBits(fillBitsEnd, 0);
     }
 
     uint8_t row = galinfo[gal].uesrow;
