@@ -1674,14 +1674,14 @@ static void writeGalFuseMapV750CRange(const unsigned char* cfgArray, char fillUe
     // write UES
     setRow(0); //RA0-5 low
 	  if (fillUesStart) {
-      sendBits(galinfo[gal].bits - (8 * galinfo[gal].uesbytes), 1);
+      sendBits(galinfo[gal].bits - (8 * galinfo[gal].uesbytes), 0);
     }
     for (bit = 0; bit < (8 * galinfo[gal].uesbytes); bit++) {
       addr = rangeStartRow + bit;
       sendBit(getFuseBit(addr));
     }
     if (!fillUesStart) {
-      sendBits(galinfo[gal].bits - (8 * galinfo[gal].uesbytes), 1);
+      sendBits(galinfo[gal].bits - (8 * galinfo[gal].uesbytes), 0);
     }
 
     uint8_t row = galinfo[gal].uesrow;
@@ -1719,6 +1719,16 @@ static void writeGalFuseMapV750CRange(const unsigned char* cfgArray, char fillUe
         setRow(0);
         delayMicroseconds(12);
       }
+      if (useSdin) {
+        // disable power-down feature (JEDEC bit #5892)
+        setRow(0);
+        uint8_t row = 125; // TODO: check if row is correct
+        sendAddress(row); 
+        setPV(1);
+        strobe(progtime);
+        setPV(0);
+        delayPrecise(progtime);
+      }
     }
     else // e.g. ATF22V10C
     {  	
@@ -1734,17 +1744,6 @@ static void writeGalFuseMapV750CRange(const unsigned char* cfgArray, char fillUe
       setPV(0);
       delayPrecise(progtime);
   	}
-
-    if (useSdin) {
-      // disable power-down feature (JEDEC bit #5892)
-      setRow(0);
-      uint8_t row = galinfo[gal].uesrow + 1; // TODO: check if row is correct
-      sendAddress(row); 
-      setPV(1);
-      strobe(progtime);
-      setPV(0);
-  	  delayPrecise(progtime);
-    }
   }
 }
 
