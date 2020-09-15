@@ -241,7 +241,7 @@ galinfo[]=
     {ATF16V8B,  0x00, 0x00, "ATF16V8B", 2194, 20, 32,  64, 32, 2056, 8, 63, 54, 58,  8, 60,  0,  0, CFG_BASE_16, cfgV8AB, sizeof(cfgV8AB), CFG_STROBE_ROW},
     {ATF22V10B, 0x00, 0x00, "ATF22V10B",5892, 24, 44, 132, 44, 5828, 8, 61, 60, 58, 10, 16,  0,  0, CFG_BASE_22, cfgV10,  sizeof(cfgV10) , CFG_SET_ROW   },
     {ATF22V10C, 0x00, 0x00, "ATF22V10C",5892, 24, 44, 132, 44, 5828, 8, 61, 60, 58, 10, 16,  0,  0, CFG_BASE_22, cfgV10,  sizeof(cfgV10) , CFG_SET_ROW   },
-    {ATF750C,   0x00, 0x00, "ATF750C", 14499, 24, 84, 171, 84,14435, 8, 61, 60,127, 10, 16, 32, 10, CFG_BASE_750,cfgV750, sizeof(cfgV750), CFG_STROBE_ROW2}, // TODO: not all numbers are clear
+    {ATF750C,   0x00, 0x00, "ATF750C", 14499, 24, 84, 171, 84,14435, 8, 61, 60,127, 10, 16, 96, 10, CFG_BASE_750,cfgV750, sizeof(cfgV750), CFG_STROBE_ROW2}, // TODO: not all numbers are clear
 };
 
 // MAXFUSES calculated as the biggest required space to hold the fuse bitmap + UES bitmap + CFG bitmap
@@ -863,24 +863,19 @@ static void sendBits(short n, char bitValue)
 static void sendAddress(unsigned char row)
 {
   unsigned char n = getRowAddrWidth();
-  uint8_t mask = 1 << (n - 1);
  
   switch (gal) {
+  case ATF750C:   // LSb first
+	  	row = bitReverse(row);
+      // fall through
   case ATF22V10C: // MSb first
+      uint8_t mask = 1 << (n - 1);
       while (n-- > 1) {
           sendBit(row & mask);
           row <<= 1;
       }
       setSDIN(row & mask);       // last bit is not clocked it, but set statically
       delayMicroseconds(10);
-      break;
-
-  case ATF750C:   // LSb first
-	  	row = bitReverse(row);
-      while (n-- >= 1) {
-          sendBit(row & mask);
-          row <<= 1;
-      }
       break;
 
   default:
@@ -893,7 +888,6 @@ static void sendAddress(unsigned char row)
       break;
   }
 }
-
 
 static void delayPrecise(uint16_t msec) {
   if(msec < 16)
@@ -909,7 +903,7 @@ static void strobe(unsigned short msec)
   setSTB(0);
   delayPrecise(msec);
   setSTB(1);
-  delayPrecise(msec);
+  delayMicroseconds(20L);
 }
 
 // 16V8, 20V8 RA0-5 = row address, strobe.
@@ -1215,8 +1209,9 @@ static void readGalFuseMapRange(const unsigned char* cfgArray, char useDelay, ch
         uint8_t absBit = bit + i * galinfo[gal].cfgrowlen;
         if (absBit >= galinfo[gal].cfgbits)
           break;
+        uint16_t addr = galinfo[gal].cfgbase - (galinfo[gal].bits * rangeStartRow) + cfgArray[absBit];
         if (receiveBit())
-          setFuseBit(cfgArray[absBit]);
+          setFuseBit(addr);
       }
       if (useDelay)
         delayPrecise(useDelay);
@@ -1360,8 +1355,8 @@ static unsigned short verifyGalFuseMapRange(const unsigned char* cfgArray, char 
         uint8_t absBit = bit + i * galinfo[gal].cfgrowlen;
         if (absBit >= galinfo[gal].cfgbits)
           break;
-        uint16_t addr = rangeStartRow + cfgArray[absBit];
-        mapBit = getFuseBit(addr); 
+        uint16_t addr = galinfo[gal].cfgbase - (galinfo[gal].bits * rangeStartRow) + cfgArray[absBit];
+        mapBit = (addr < rangeRowCount*galinfo[gal].bits) ? getFuseBit(addr) : 0; 
         fuseBit = receiveBit();
         if (mapBit != fuseBit) {
     #ifdef DEBUG_VERIFY
@@ -1700,15 +1695,16 @@ static void writeGalFuseMapV750CRange(const unsigned char* cfgArray, char fillUe
   if(rangeMemType == range_mem_type::cfg) {
     // write CFG
     if(galinfo[gal].cfgrowlen > 0) { // e.g. ATF750C
-      uint8_t cfgrowcount = cfgrowcount = (galinfo[gal].cfgbits + (galinfo[gal].cfgrowlen - 1)) / galinfo[gal].cfgrowlen;
+      uint8_t cfgrowcount = (galinfo[gal].cfgbits + (galinfo[gal].cfgrowlen - 1)) / galinfo[gal].cfgrowlen;
       for(uint8_t i = 0; i < cfgrowcount; i++) {
-        setRow(0);           // set RA0-5 low
+        setRow(0);
         delayMicroseconds(10);
         setRow(galinfo[gal].cfgrow);
 
         for(bit = 0; bit < galinfo[gal].cfgrowlen; bit++) {
           uint8_t absBit = bit + i * galinfo[gal].cfgrowlen;
-          uint8_t v = (absBit < galinfo[gal].cfgbits) ? getFuseBit(rangeStartRow + cfgArray[absBit]) : 0;
+          addr = galinfo[gal].cfgbase - (galinfo[gal].bits * rangeStartRow) + cfgArray[absBit];
+          uint8_t v = (addr < (rangeRowCount * galinfo[gal].bits)) ? getFuseBit(addr) : 0; 
           sendBit(v);
         }
 
@@ -1720,8 +1716,9 @@ static void writeGalFuseMapV750CRange(const unsigned char* cfgArray, char fillUe
         delayMicroseconds(32);
         setPV(0);
         delayMicroseconds(12);
+        setRow(0);
+        delayMicroseconds(12);
       }
-      delayPrecise(progtime);
     }
     else // e.g. ATF22V10C
     {  	
