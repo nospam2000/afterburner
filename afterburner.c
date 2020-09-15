@@ -248,7 +248,7 @@ char opTestVPP = 0;
 
 static int waitForSerialPrompt(char* buf, int bufSize, int maxDelay);
 static char sendGenericCommand(const char* command, const char* errorText, int maxDelay, char printResult);
-
+static void createColumnMapperArray();
 
 static void printHelp() {
     printf("Afterburner " VERSION "  a GAL programming tool for Arduino based programmer\n");
@@ -376,6 +376,8 @@ static char checkArgs(int argc, char** argv) {
             printf("Error: unknow GAL type. Types: GAL16V8 GAL20V8 GAL22V10 ATF16V8B ATF22V10B ATF22V10C ATF750C\n");
             return -1;
         }
+
+        createColumnMapperArray(); // depends on gal type
     }
 
     return 0;
@@ -793,6 +795,29 @@ static int sendLine(char* buf, int bufSize, int maxDelay) {
     return total;
 }
 
+// the makro cells which have their bits reversed
+uint8_t atf750cMakroCellRanges[] = {85, 106, 125, 142, 157, 170, 0}; 
+uint8_t colReMap[171]; 
+static void createColumnMapperArray() {
+    // the default map is a 1:1 mapping
+    for(uint8_t i = 0; i < (sizeof(colReMap) / sizeof(colReMap[0])); i++)
+        colReMap[i] = i;
+
+    if(galinfo[gal].type == ATF750C) {
+        for(uint8_t r = 0; atf750cMakroCellRanges[r + 1]; r++)
+        {
+            uint8_t start = atf750cMakroCellRanges[r];
+            uint8_t end = atf750cMakroCellRanges[r + 1] - 1;
+            uint8_t len = end - start + 1;
+            uint8_t centerIndex = len / 2;
+            // when len is odd, the center value gets the 1:1 mapping from the loop at the beginning
+            for(uint8_t i = 0; i < centerIndex; i++) {
+                colReMap[start + i] = end - i;
+                colReMap[end - i] = start + i;
+            }
+        }
+    }
+} 
 
 
 // Upload fusemap in byte format (as opposed to bit format used in JEDEC file).
@@ -831,7 +856,7 @@ static char uploadRange(uint8_t rangeStartRow, uint8_t rangeRowCount, enum mem_t
                 sprintf(buf, "#f %04u ", i);
             }
             if(mem_type == mem_type_fuses)
-                addr = galinfo[gal].rows * col + row;
+                addr = galinfo[gal].rows * colReMap[col] + row;
             else
                 addr = galinfo[gal].bits * row + col;
             uint8_t bitVal = (addr < galinfo[gal].fuses) && fusemap[addr];
@@ -1269,7 +1294,7 @@ static int readOneRange(char *buf, enum mem_type mem, uint8_t startRow, uint8_t 
             updateCheckSumRange(&cs_a, &cs_c, &cs_e, bitVal);
             uint16_t addr = 0;
             if(mem == mem_type_fuses) {
-                addr = galinfo[gal].rows * j + (startRow + i);
+                addr = galinfo[gal].rows * j + colReMap[(startRow + i)];
             }
             else {
                 addr = startJedecFuseNum + j;
