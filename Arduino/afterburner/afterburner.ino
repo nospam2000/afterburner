@@ -368,7 +368,7 @@ void testRead() {
     cfgrowcount = (galinfo[gal].cfgbits + (galinfo[gal].cfgrowlen - 1)) / galinfo[gal].cfgrowlen;
   for(uint8_t i = 0; i < cfgrowcount; i++) {
     Serial.write('Y');
-    if(i < 10) Serial.write('0');
+    if((i + galinfo[gal].cfgstroberow) < 100) Serial.write('0');
     Serial.print(i + galinfo[gal].cfgstroberow);
     Serial.print(F(": "));
     if (galinfo[gal].cfgmethod == CFG_STROBE_ROW2) {
