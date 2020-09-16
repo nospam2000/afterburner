@@ -796,6 +796,7 @@ static int sendLine(char* buf, int bufSize, int maxDelay) {
 }
 
 // the makro cells which have their bits reversed
+// TODO: move colReMap handling to Arduino
 uint8_t atf750cMakroCellRanges[] = {85, 106, 125, 142, 157, 170, 0}; 
 uint8_t colReMap[171]; 
 static void createColumnMapperArray() {
@@ -856,7 +857,7 @@ static char uploadRange(uint8_t rangeStartRow, uint8_t rangeRowCount, enum mem_t
                 sprintf(buf, "#f %04u ", i);
             }
             if(mem_type == mem_type_fuses)
-                addr = galinfo[gal].rows * colReMap[col] + row;
+                addr = galinfo[gal].rows * colReMap[col] + row; // TODO: move colReMap handling to Arduino
             else
                 addr = galinfo[gal].bits * row + col;
             uint8_t bitVal = (addr < galinfo[gal].fuses) && fusemap[addr];
@@ -1112,11 +1113,7 @@ static char operationWriteOrVerify(char doWrite) {
         }
         // write command
         if (doWrite) {
-            //sprintf(cmd, "W %02hhX %02hhX %02hhX\r", (uint8_t)mem_type_cfg, (uint8_t)galinfo[gal].cfgrow, (uint8_t)1);
-            sprintf(cmd, "W %02hhX %02hhX %02hhX\r",
-                    (uint8_t)mem_type_cfg,
-                    (uint8_t)(galinfo[gal].cfgbase - (galinfo[gal].cfgrow * galinfo[gal].bits)),
-                    (uint8_t)(galinfo[gal].cfgbits));
+            sprintf(cmd, "W %02hhX %02hhX %02hhX\r", (uint8_t)mem_type_cfg, (uint8_t)cfgrow, (uint8_t)cfgrowCount);
             result = sendGenericCommand(cmd, "write failed ?", 4000, 0);
             if (result) {
                 goto finish;
@@ -1124,11 +1121,7 @@ static char operationWriteOrVerify(char doWrite) {
         }
         // verify command
         if (doWrite || opVerify) {
-            //sprintf(cmd, "V %02hhX %02hhX %02hhX\r", (uint8_t)mem_type_cfg, (uint8_t)galinfo[gal].cfgrow, (uint8_t)1);
-            sprintf(cmd, "V %02hhX %02hhX %02hhX\r",
-                    (uint8_t)mem_type_cfg,
-                    (uint8_t)(galinfo[gal].cfgbase - (galinfo[gal].cfgrow * galinfo[gal].bits)),
-                    (uint8_t)(galinfo[gal].cfgbits));
+            sprintf(cmd, "V %02hhX %02hhX %02hhX\r", (uint8_t)mem_type_cfg, (uint8_t)cfgrow, (uint8_t)cfgrowCount);
             result = sendGenericCommand(cmd, "verify failed ?", 4000, 0);
         }
     }
@@ -1294,7 +1287,7 @@ static int readOneRange(char *buf, enum mem_type mem, uint8_t startRow, uint8_t 
             updateCheckSumRange(&cs_a, &cs_c, &cs_e, bitVal);
             uint16_t addr = 0;
             if(mem == mem_type_fuses) {
-                addr = galinfo[gal].rows * j + colReMap[(startRow + i)];
+                addr = galinfo[gal].rows * j + colReMap[(startRow + i)]; // TODO: move colReMap handling to Arduino
             }
             else {
                 addr = startJedecFuseNum + j;
