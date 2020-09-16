@@ -1359,7 +1359,7 @@ static unsigned short verifyGalFuseMapRange(const unsigned char* cfgArray, char 
         if (absBit >= galinfo[gal].cfgbits)
           break;
         uint16_t addr = galinfo[gal].cfgbase - (galinfo[gal].bits * rangeStartRow) + cfgArray[absBit];
-        mapBit = (addr < rangeRowCount*galinfo[gal].bits) ? getFuseBit(addr) : 0; 
+        mapBit = (addr < rangeRowCount * galinfo[gal].bits) ? getFuseBit(addr) : 0; 
         fuseBit = receiveBit();
         if (mapBit != fuseBit) {
     #ifdef DEBUG_VERIFY
@@ -1638,7 +1638,7 @@ static void writeGalFuseMapV10(const unsigned char* cfgArray, char fillUesStart,
   if (useSdin) {
     // disable power-down feature (JEDEC bit #5892)
     setRow(0);
-    sendAddress(59);
+    sendAddress(59); // TODO: move number to galinfo struct
     setPV(1);
     strobe(progtime);
     setPV(0);
@@ -1735,7 +1735,7 @@ static void writeGalFuseMapV750CRange(const unsigned char* cfgArray, char fillUe
       if (useSdin) {
         // disable power-down feature (JEDEC bit #5892)
         setRow(0);
-        uint8_t row = 125; // TODO: check if row is correct
+        uint8_t row = 125; // TODO: move number to galinfo struct
         sendAddress(row); 
         setPV(1);
         strobe(progtime);
